@@ -1,5 +1,5 @@
 """
-Страница библиотеки — галерея креативов из базы с фильтрами и SHAP-разбором.
+Library page — gallery of creatives from the database with filters and tag breakdown.
 """
 
 import streamlit as st
@@ -24,7 +24,7 @@ from utils import CATEGORICAL_TAGS
 
 
 st.set_page_config(
-    page_title="Библиотека — Creative Analyzer",
+    page_title="Library — Creative Analyzer",
     page_icon="📚",
     layout="wide",
 )
@@ -32,7 +32,7 @@ st.set_page_config(
 st.markdown(COMMON_CSS, unsafe_allow_html=True)
 
 # ============================================================
-# Данные и модель
+# Data and model
 # ============================================================
 df, shap_df, feature_cols, interactions_df = load_data()
 model = load_model()
@@ -40,8 +40,13 @@ explainer = get_explainer(model)
 
 IMAGES_DIR = "images"
 
+
+def spacer(h=16):
+    st.markdown(f'<div style="height:{h}px;"></div>', unsafe_allow_html=True)
+
+
 # ============================================================
-# Хелперы для рендера разбора креатива
+# Helpers for creative breakdown rendering
 # ============================================================
 
 TAG_DISPLAY_NAMES = {
@@ -69,7 +74,7 @@ def display_name(tag):
 
 
 def categorize_strength(value, strong_threshold, weak_threshold):
-    """Категоризирует связь: (направление, сила)."""
+    """Categorize correlation: (direction, strength)."""
     abs_v = abs(value)
     if abs_v < weak_threshold:
         return "neutral", "none"
@@ -79,7 +84,7 @@ def categorize_strength(value, strong_threshold, weak_threshold):
 
 
 def arrow_symbol(direction, strength):
-    """HTML стрелок: двойная/одинарная цветная, или серый дефис для нейтральной связи."""
+    """HTML for arrows: colored double/single, or gray dash for neutral."""
     if direction == "neutral":
         return '<span style="color:#b5b3a8;font-size:18px;">—</span>'
     if direction == "up":
@@ -91,12 +96,12 @@ def arrow_symbol(direction, strength):
     return f'<span style="color:{color};font-weight:600;font-size:20px;letter-spacing:-3px;">{arrows}</span>'
 
 # ============================================================
-# Функции расчёта для разбора креатива
+# Calculation functions for creative breakdown
 # ============================================================
 
 
 def get_active_tags(tags):
-    """Возвращает список активных бинарных тегов + one-hot колонок категорий."""
+    """Returns list of active binary tags + one-hot columns for categories."""
     active = []
     for binary in BINARY_FEATURES:
         if tags.get(binary, False):
@@ -111,7 +116,7 @@ def get_active_tags(tags):
 
 
 def calculate_tag_effects(active_tags):
-    """Средний SHAP по каждому активному бинарному тегу."""
+    """Average SHAP per active binary tag."""
     effects = []
     for tag in active_tags:
         if tag not in BINARY_FEATURES:
@@ -126,7 +131,7 @@ def calculate_tag_effects(active_tags):
 
 
 def get_segment_context(tags):
-    """Сравнение CTR категории креатива с базой."""
+    """Compare CTR of creative's category with the entire database."""
     base_ctr = df["ctr"].mean()
     insights = []
     
@@ -138,7 +143,7 @@ def get_segment_context(tags):
             diff = seg_ctr - base_ctr
             insights.append({
                 "label": food.replace("_", " "),
-                "category": "тип еды",
+                "category": "food type",
                 "ctr": seg_ctr,
                 "diff": diff,
                 "count": len(segment_df),
@@ -152,7 +157,7 @@ def get_segment_context(tags):
             diff = seg_ctr - base_ctr
             insights.append({
                 "label": drink.replace("_", " "),
-                "category": "тип напитка",
+                "category": "drink type",
                 "ctr": seg_ctr,
                 "diff": diff,
                 "count": len(segment_df),
@@ -162,7 +167,7 @@ def get_segment_context(tags):
 
 
 def calculate_active_combinations(active_tags, food_type=None, drink_type=None, top_n_each=3):
-    """Топ-3 положительных и топ-3 отрицательных пары среди активных тегов."""
+    """Top-3 positive and top-3 negative pairs among active tags."""
     if food_type and food_type != "none":
         segment_filter = (interactions_df["segment_type"] == "food") & \
                         (interactions_df["segment"] == food_type)
@@ -192,7 +197,7 @@ def calculate_active_combinations(active_tags, food_type=None, drink_type=None, 
     return positive.to_dict("records"), negative.to_dict("records")
 
 # ============================================================
-# Функции рендера блоков разбора креатива
+# Render functions for creative breakdown blocks
 # ============================================================
 
 def divider():
@@ -200,7 +205,7 @@ def divider():
 
 
 def render_block_tag_effects(active_tags):
-    """Связь тегов с CTR — стрелки вместо чисел."""
+    """Tag correlation with CTR — arrows instead of numbers."""
     effects = calculate_tag_effects(active_tags)
     
     TAG_STRONG = 0.15
@@ -211,18 +216,18 @@ def render_block_tag_effects(active_tags):
         direction, strength = categorize_strength(val, TAG_STRONG, TAG_WEAK)
         categorized.append((tag, direction, strength))
     
-    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">Связь тегов с CTR</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">Tag correlation with CTR</div>', unsafe_allow_html=True)
     st.markdown(
         '<div style="font-size:13px;color:#888;margin-bottom:20px;">'
-        'Какие теги чаще встречаются в креативах с высоким или низким CTR. '
-        '<b>↑↑ / ↓↓</b> — сильная связь, <b>↑ / ↓</b> — умеренная, <b>—</b> — нейтральная. '
-        'Это паттерн в данных, не гарантированный эффект.</div>',
+        'Which tags appear more often in creatives with high or low CTR. '
+        '<b>↑↑ / ↓↓</b> — strong correlation, <b>↑ / ↓</b> — moderate, <b>—</b> — neutral. '
+        'This is a pattern in the data, not a guaranteed effect.</div>',
         unsafe_allow_html=True,
     )
     
     if not categorized:
         st.markdown(
-            "<div style='color:#888;font-size:14px;'>Не нашли значимых эффектов</div>",
+            "<div style='color:#888;font-size:14px;'>No significant effects found</div>",
             unsafe_allow_html=True
         )
         return
@@ -239,16 +244,16 @@ def render_block_tag_effects(active_tags):
 
 
 def render_block_segment_context(tags):
-    """Категория креатива — сравнение с базой."""
+    """Creative category — comparison with the entire database."""
     insights, base_ctr = get_segment_context(tags)
     
     if not insights:
         return
     
-    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">Категория креатива</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">Creative category</div>', unsafe_allow_html=True)
     st.markdown(
         '<div style="font-size:13px;color:#888;margin-bottom:20px;">'
-        'Насколько креативы такой же категории сильны в общей базе</div>',
+        'How strong creatives in the same category are within the entire database</div>',
         unsafe_allow_html=True,
     )
     
@@ -260,13 +265,13 @@ def render_block_segment_context(tags):
         sign = "+" if is_better else ""
         
         if abs(diff) < 0.1:
-            verdict = "Категория работает примерно как и остальные"
+            verdict = "Category performs roughly on par with the rest"
             verdict_color = "#888"
         elif is_better:
-            verdict = f"✓ Категория сильнее остальных на {sign}{diff:.2f}%"
+            verdict = f"✓ Category outperforms others by {sign}{diff:.2f}%"
             verdict_color = "#1D9E75"
         else:
-            verdict = f"✗ Категория слабее остальных на {diff:.2f}%"
+            verdict = f"✗ Category underperforms others by {diff:.2f}%"
             verdict_color = "#E24B4A"
         
         rows_html += f"""
@@ -276,27 +281,27 @@ def render_block_segment_context(tags):
             </div>
             <div style="display:flex;gap:24px;margin-bottom:12px;">
                 <div>
-                    <div style="font-size:11px;color:#888;margin-bottom:2px;">CTR этой категории</div>
+                    <div style="font-size:11px;color:#888;margin-bottom:2px;">Category CTR</div>
                     <div style="font-size:20px;font-weight:600;color:#1a1a1a;">{ins['ctr']:.2f}%</div>
                 </div>
                 <div>
-                    <div style="font-size:11px;color:#888;margin-bottom:2px;">CTR всех креативов</div>
+                    <div style="font-size:11px;color:#888;margin-bottom:2px;">All creatives CTR</div>
                     <div style="font-size:20px;font-weight:600;color:#1a1a1a;">{base_ctr:.2f}%</div>
                 </div>
                 <div>
-                    <div style="font-size:11px;color:#888;margin-bottom:2px;">Разница</div>
+                    <div style="font-size:11px;color:#888;margin-bottom:2px;">Difference</div>
                     <div style="font-size:20px;font-weight:600;color:{color};">{sign}{diff:.2f}%</div>
                 </div>
             </div>
             <div style="font-size:14px;color:{verdict_color};font-weight:500;">{verdict}</div>
-            <div style="font-size:12px;color:#888;margin-top:6px;">На основе {ins['count']} креативов</div>
+            <div style="font-size:12px;color:#888;margin-top:6px;">Based on {ins['count']} creatives</div>
         </div>
         """
     st.markdown(rows_html, unsafe_allow_html=True)
 
 
 def render_block_combinations(active_tags, tags):
-    """Связь пар тегов с CTR — стрелки вместо чисел."""
+    """Tag pair correlation with CTR — arrows instead of numbers."""
     positive, negative = calculate_active_combinations(
         active_tags,
         food_type=tags.get("food_type"),
@@ -311,17 +316,17 @@ def render_block_combinations(active_tags, tags):
         direction, strength = categorize_strength(combo["interaction"], COMBO_STRONG, COMBO_WEAK)
         all_combos.append((combo, direction, strength))
     
-    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">Связь пар тегов с CTR</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">Tag pair correlation with CTR</div>', unsafe_allow_html=True)
     st.markdown(
         '<div style="font-size:13px;color:#888;margin-bottom:20px;">'
-        'Какие сочетания тегов связаны с CTR сильнее или слабее, чем эти теги по отдельности. '
-        '<b>↑↑ / ↓↓</b> — сильная, <b>↑ / ↓</b> — умеренная, <b>—</b> — нейтральная.</div>',
+        'Which tag combinations correlate with CTR more or less than the tags taken separately. '
+        '<b>↑↑ / ↓↓</b> — strong, <b>↑ / ↓</b> — moderate, <b>—</b> — neutral.</div>',
         unsafe_allow_html=True,
     )
     
     if not all_combos:
         st.markdown(
-            "<div style='color:#888;font-size:14px;'>Не нашли значимых комбинаций для этого набора тегов</div>",
+            "<div style='color:#888;font-size:14px;'>No significant combinations found for this tag set</div>",
             unsafe_allow_html=True
         )
         return
@@ -338,7 +343,7 @@ def render_block_combinations(active_tags, tags):
 
 
 # ============================================================
-# Читаем query-параметр от Insights — если есть, открываем нужный креатив
+# Read query param from Insights — if present, open that creative
 # ============================================================
 
 preselected = st.query_params.get("creative")
@@ -346,22 +351,22 @@ if preselected:
     matches = df.index[df["filename"] == preselected].tolist()
     if matches:
         st.session_state["selected_creative"] = int(matches[0])
-    # очищаем query param чтобы при F5 не залипало
+    # clear query param so it doesn't stick on F5
     st.query_params.clear()
 
 # ============================================================
-# session_state — какой креатив выбран
+# session_state — which creative is selected
 # ============================================================
 if "selected_creative" not in st.session_state:
     st.session_state.selected_creative = None
 
 # ============================================================
-# Функция: для нормального отображения картинки
+# Function: properly render an image
 # ============================================================
 
 @st.cache_data
 def encode_image(path):
-    """Конвертит картинку в data URL для inline HTML."""
+    """Convert image to data URL for inline HTML."""
     try:
         ext = Path(path).suffix.lstrip(".").lower()
         if ext == "jpg":
@@ -374,12 +379,49 @@ def encode_image(path):
 
 
 def render_library_creative(idx):
-    """Показывает разбор креатива из библиотеки (как в Upload, без прогнозов)."""
+    """Show breakdown of a library creative (Upload-style, without predictions)."""
     row = df.iloc[idx]
     filename = row["filename"]
     image_path = os.path.join(IMAGES_DIR, filename)
+
+    # === Determine creative status ===
+    shap_row = shap_df[shap_df["filename"] == filename]
+    badge_html = ""
     
-    # === Шапка: картинка + базовая инфа ===
+    if len(shap_row) > 0:
+        shap_row = shap_row.iloc[0]
+        predicted_ctr = shap_row["predicted_ctr"]
+        residual = row["ctr"] - predicted_ctr
+        
+        # Percentile of residual across the database to gauge anomaly rarity
+        all_residuals = df.merge(
+            shap_df[["filename", "predicted_ctr"]], on="filename", how="left"
+        ).dropna(subset=["predicted_ctr"])
+        all_residuals["residual"] = all_residuals["ctr"] - all_residuals["predicted_ctr"]
+        
+        # Top-10% positive residuals → hidden gem
+        gem_threshold = all_residuals["residual"].quantile(0.90)
+        # Bottom-10% → underperformer
+        under_threshold = all_residuals["residual"].quantile(0.10)
+        
+        if residual >= gem_threshold and residual > 0.20:
+            badge_html = """
+            <div style="display:inline-flex;align-items:center;gap:8px;background:#e8f7f0;
+                        color:#1D9E75;padding:8px 16px;border-radius:20px;font-size:13px;
+                        font-weight:600;margin-bottom:16px;">
+                💎 Hidden gem — CTR above similar creatives
+            </div>
+            """
+        elif residual <= under_threshold and residual < -0.20:
+            badge_html = """
+            <div style="display:inline-flex;align-items:center;gap:8px;background:#fdecec;
+                        color:#E24B4A;padding:8px 16px;border-radius:20px;font-size:13px;
+                        font-weight:600;margin-bottom:16px;">
+                📉 Underperformer — CTR below similar creatives
+            </div>
+            """
+    
+    # === Header: image + base info ===
     col_img, col_info = st.columns([0.9, 1.6], gap="large")
     
     with col_img:
@@ -391,15 +433,17 @@ def render_library_creative(idx):
                 image = image.resize((int(image.width * ratio), max_height), Image.LANCZOS)
             st.image(image)
         else:
-            st.info(f"Картинка не найдена: {filename}")
+            st.info(f"Image not found: {filename}")
     
     with col_info:
+        if badge_html:
+            st.markdown(badge_html, unsafe_allow_html=True)
         actual_ctr = row["ctr"]
         impressions = row["impressions"]
         brand = row.get("brand", "—")
         year = row.get("year", "—")
         
-        # Сравнение с базой
+        # Comparison with database
         base_ctr = df["ctr"].mean()
         diff = actual_ctr - base_ctr
         diff_color = "#1D9E75" if diff > 0 else "#E24B4A"
@@ -408,14 +452,14 @@ def render_library_creative(idx):
         st.markdown(f"""
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
             <div style="background:#faf9f5;border-radius:10px;padding:14px 18px;">
-                <div style="font-size:11px;color:#888;margin-bottom:4px;">Фактический CTR</div>
+                <div style="font-size:11px;color:#888;margin-bottom:4px;">Actual CTR</div>
                 <div style="font-size:24px;font-weight:600;color:#1a1a1a;">{actual_ctr:.2f}%</div>
                 <div style="font-size:12px;color:{diff_color};margin-top:4px;">
-                    {diff_sign}{diff:.2f}% относительно базы ({base_ctr:.2f}%)
+                    {diff_sign}{diff:.2f}% vs database ({base_ctr:.2f}%)
                 </div>
             </div>
             <div style="background:#faf9f5;border-radius:10px;padding:14px 18px;">
-                <div style="font-size:11px;color:#888;margin-bottom:4px;">Показов</div>
+                <div style="font-size:11px;color:#888;margin-bottom:4px;">Impressions</div>
                 <div style="font-size:24px;font-weight:600;color:#1a1a1a;">{impressions:,.0f}</div>
                 <div style="font-size:12px;color:#888;margin-top:4px;">
                     {brand} · {year}
@@ -424,7 +468,7 @@ def render_library_creative(idx):
         </div>
         """, unsafe_allow_html=True)
         
-        # Собираем теги
+        # Collect tags
         tags = {}
         for cat in CATEGORICAL_TAGS:
             tags[cat] = row[cat]
@@ -432,72 +476,122 @@ def render_library_creative(idx):
             if binary in row.index:
                 tags[binary] = bool(row[binary])
         
-        st.markdown("<div style='font-size:14px;font-weight:500;margin-bottom:8px;'>Теги креатива</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:14px;font-weight:500;margin-bottom:8px;'>Creative tags</div>", unsafe_allow_html=True)
         st.markdown(render_tag_chips(tags), unsafe_allow_html=True)
     
-    # === Активные теги для аналитики ===
+    # === Active tags for analysis ===
     active_tags = get_active_tags(tags)
     
-    # === Блок 1: Связь тегов с CTR ===
+    # === Block 1: Tag correlation with CTR ===
     divider()
     render_block_tag_effects(active_tags)
     
-    # === Блок 2: Категория креатива ===
+    spacer()
+    with st.expander("ℹ️ How this is calculated"):
+        st.markdown("""
+        For each tag of this creative, we look at all creatives in the database where this
+        tag is active and calculate the average SHAP value — how much this tag tends to push
+        CTR up or down compared to the baseline.
+        
+        Arrow indicators:
+        
+        - ↑↑ / ↓↓ — strong correlation (≥ 0.15 CTR percentage points)
+        - ↑ / ↓ — moderate (≥ 0.05)
+        - — — neutral
+        
+        This shows correlation in the data, not a guaranteed effect for this specific creative.
+        """)
+    
+    # === Block 2: Creative category ===
     divider()
     render_block_segment_context(tags)
     
-    # === Блок 3: Сочетания тегов ===
+    spacer()
+    with st.expander("ℹ️ How this is calculated"):
+        st.markdown("""
+        Compares the average CTR of creatives in the same food/drink category as this creative
+        with the average CTR across the entire database.
+        
+        Positive difference (green) means creatives of this category tend to perform better
+        than average. Negative (red) means they tend to underperform.
+        
+        Only categories with at least 5 creatives in the database are shown.
+        """)
+    
+    # === Block 3: Tag combinations ===
     divider()
     render_block_combinations(active_tags, tags)
+    
+    spacer()
+    with st.expander("ℹ️ How this is calculated"):
+        st.markdown("""
+        For each pair of active tags on this creative, we measure how much **adding the
+        second tag** changes CTR beyond what each tag would contribute alone.
+        
+        We show the top 3 positive pairs (combinations that work well together) and the
+        top 3 negative pairs (combinations that work against each other).
+        
+        If no significant pairs are found, the tag combination of this creative doesn't have
+        strong synergies or conflicts in the data.
+        """)
 
 
 # ============================================================
-# UI: Заголовок
+# UI: Title
 # ============================================================
-st.title("📚 Библиотека креативов")
-st.caption(f"{len(df)} креативов с фактическим CTR и AI-разметкой")
+st.title("📚 Creative Library")
+st.caption(f"{len(df)} creatives with actual CTR and AI-tagged visual elements")
 
-# === РЕЖИМ: ПРОСМОТР КРЕАТИВА ===
+# === MODE: CREATIVE DETAIL ===
 if st.session_state.selected_creative is not None:
-    if st.button("← Назад к библиотеке"):
+    if st.button("← Back to library"):
         st.session_state.selected_creative = None
         st.rerun()
 
     render_library_creative(st.session_state.selected_creative)
 
-# === РЕЖИМ: ГАЛЕРЕЯ ===
+# === MODE: GALLERY ===
 else:
     # ============================================================
-    # Фильтры в сайдбаре
+    # Sidebar filters
     # ============================================================
     with st.sidebar:
-        st.markdown("### Фильтры")
+        st.markdown("### Filters")
 
-        # Бренд
-        all_brands = ["Все"] + sorted(df["brand"].dropna().unique().tolist())
-        selected_brand = st.selectbox("Бренд", all_brands)
+        # Brand
+        all_brands = ["All"] + sorted(df["brand"].dropna().unique().tolist())
+        selected_brand = st.selectbox("Brand", all_brands)
 
-        # Год
-        all_years = ["Все"] + sorted(df["year"].dropna().unique().tolist())
-        selected_year = st.selectbox("Год", all_years)
-
-        st.divider()
-
-
-        # Фильтр по типу
-        main_objects = ["Все"] + sorted(df["main_object"].dropna().unique().tolist())
-        selected_main = st.selectbox("Главный объект", main_objects)
-
-        food_types = ["Все"] + sorted(df["food_type"].dropna().unique().tolist())
-        selected_food = st.selectbox("Тип еды", food_types)
-
-        drink_types = ["Все"] + sorted(df["drink_type"].dropna().unique().tolist())
-        selected_drink = st.selectbox("Тип напитка", drink_types)
+        # Year
+        all_years = ["All"] + sorted(df["year"].dropna().unique().tolist())
+        selected_year = st.selectbox("Year", all_years)
 
         st.divider()
 
-        # Бинарные фильтры
-        st.markdown("**Должны быть**")
+
+        # Filter by type
+        main_objects = ["All"] + sorted(df["main_object"].dropna().unique().tolist())
+        selected_main = st.selectbox("Main object", main_objects)
+
+        food_types = ["All"] + sorted(df["food_type"].dropna().unique().tolist())
+        selected_food = st.selectbox("Food type", food_types)
+
+        drink_types = ["All"] + sorted(df["drink_type"].dropna().unique().tolist())
+        selected_drink = st.selectbox("Drink type", drink_types)
+
+        st.divider()
+
+        # Status filter (anomaly)
+        status_filter = st.selectbox(
+            "Status",
+            ["All creatives", "💎 Hidden gems", "📉 Underperformers"],
+            help="Hidden gems — CTR above creatives with similar tags. Underperformers — CTR below."
+        )
+
+        st.divider()
+
+        # Binary filters
+        st.markdown("**Must have**")
         must_have = []
         for feat in BINARY_FEATURES:
             if st.checkbox(feat.replace("_", " "), key=f"mh_{feat}"):
@@ -505,61 +599,99 @@ else:
 
         st.divider()
 
-        # Сортировка
-        sort_by = st.selectbox("Сортировать по", ["CTR (убыв.)", "CTR (возр.)", "Показы"])
+        # Sort
+        sort_by = st.selectbox("Sort by", ["CTR (descending)", "CTR (ascending)", "Impressions"])
 
     # ============================================================
-    # Применяем фильтры
+    # Apply filters
     # ============================================================
     filtered = df.copy()
-    if selected_brand != "Все":
+    if selected_brand != "All":
         filtered = filtered[filtered["brand"] == selected_brand]
-    if selected_year != "Все":
+    if selected_year != "All":
         filtered = filtered[filtered["year"] == selected_year]
 
-    if selected_main != "Все":
+    if selected_main != "All":
         filtered = filtered[filtered["main_object"] == selected_main]
-
-    if selected_main != "Все":
-        filtered = filtered[filtered["main_object"] == selected_main]
-    if selected_food != "Все":
+    if selected_food != "All":
         filtered = filtered[filtered["food_type"] == selected_food]
-    if selected_drink != "Все":
+    if selected_drink != "All":
         filtered = filtered[filtered["drink_type"] == selected_drink]
 
     for feat in must_have:
         filtered = filtered[filtered[feat] == True]
 
-    if sort_by == "CTR (убыв.)":
+
+    if status_filter != "All creatives":
+            filtered = filtered.merge(
+                shap_df[["filename", "predicted_ctr"]], on="filename", how="left"
+            ).dropna(subset=["predicted_ctr"])
+            filtered["residual"] = filtered["ctr"] - filtered["predicted_ctr"]
+
+            all_with_pred = df.merge(
+                shap_df[["filename", "predicted_ctr"]], on="filename", how="left"
+            ).dropna(subset=["predicted_ctr"])
+            all_with_pred["residual"] = all_with_pred["ctr"] - all_with_pred["predicted_ctr"]
+            gem_threshold = all_with_pred["residual"].quantile(0.90)
+            under_threshold = all_with_pred["residual"].quantile(0.10)
+
+            if status_filter == "💎 Hidden gems":
+                filtered = filtered[(filtered["residual"] >= gem_threshold) & (filtered["residual"] > 0.20)]
+            elif status_filter == "📉 Underperformers":
+                filtered = filtered[(filtered["residual"] <= under_threshold) & (filtered["residual"] < -0.20)]
+
+            filtered = filtered.drop(columns=["predicted_ctr", "residual"], errors="ignore")
+
+
+
+    if sort_by == "CTR (descending)":
         filtered = filtered.sort_values("ctr", ascending=False)
-    elif sort_by == "CTR (возр.)":
+    elif sort_by == "CTR (ascending)":
         filtered = filtered.sort_values("ctr", ascending=True)
     else:
         filtered = filtered.sort_values("impressions", ascending=False)
 
-    st.markdown(f"**Найдено: {len(filtered)} креативов**")
+    st.markdown(f"**Found: {len(filtered)} creatives**")
+
+    spacer()
+
+    with st.expander("ℹ️ How to use the library"):
+        st.markdown("""
+        Browse all creatives in the database, filter by brand, year, visual elements,
+        and creative status (hidden gems / underperformers).
+        
+        **Filters:**
+        
+        - **Brand & Year** — narrow down to a specific brand or time period
+        - **Main object / Food type / Drink type** — filter by what's the primary subject of the creative
+        - **Status** — find anomalies: creatives that perform unusually well or poorly
+          compared to others with similar tags
+        - **Must have** — require specific visual elements (logo, CTA, discount, etc.)
+        - **Sort by** — order results by CTR or impressions
+        
+        Click **"Open"** on any creative to see its full breakdown — tags, correlations,
+        tag combinations, and whether it's a hidden gem or underperformer.
+        """)
 
     if len(filtered) == 0:
-        st.info("Ничего не найдено — попробуй ослабить фильтры")
+        st.info("Nothing found — try loosening the filters")
     else:
         # ============================================================
-        # Пагинация
-        # ============================================================
-        # ============================================================
-        # Пагинация
+        # Pagination
         # ============================================================
         items_per_page = 24
         total_pages = (len(filtered) - 1) // items_per_page + 1
         
-        # Уникальный ключ для хранения текущей страницы по фильтрам
-        # (чтобы при смене фильтров пагинация сбрасывалась)
-        filter_key = f"{selected_brand}_{selected_year}_{selected_main}_{'_'.join(must_have)}_{sort_by}"
+        # Unique key to keep current page per filter combination
+        # (so that page resets when filters change)
+        filter_key = f"{selected_brand}_{selected_year}_{selected_main}_{'_'.join(must_have)}_{sort_by}_{status_filter}"
+
         page_state_key = f"library_page_{filter_key}"
         
         if page_state_key not in st.session_state:
             st.session_state[page_state_key] = 0
         
-        # Безопасный коридор: если из-за смены фильтров текущая страница больше total_pages
+        # Safety: if filters changed, current page might be beyond total_pages
         page = min(st.session_state[page_state_key], total_pages - 1)
         st.session_state[page_state_key] = page
         
@@ -567,32 +699,31 @@ else:
         end = start + items_per_page
         page_data = filtered.iloc[start:end]
         
-        # Навигация сверху галереи
+        # Top navigation
         if total_pages > 1:
             nav_cols = st.columns([1, 1, 3, 1, 1])
             
             with nav_cols[0]:
-                if st.button("← Назад", disabled=(page == 0), use_container_width=True, key="page_prev"):
+                if st.button("← Previous", disabled=(page == 0), use_container_width=True, key="page_prev"):
                     st.session_state[page_state_key] = page - 1
                     st.rerun()
             
             with nav_cols[2]:
                 st.markdown(
                     f"<div style='text-align:center;padding-top:6px;font-size:14px;color:#666;'>"
-                    f"Страница <b style='color:#1a1a1a;'>{page + 1}</b> из <b style='color:#1a1a1a;'>{total_pages}</b> "
-                    f"<span style='color:#bbb;'>· показано {len(page_data)} из {len(filtered)}</span>"
+                    f"Page <b style='color:#1a1a1a;'>{page + 1}</b> of <b style='color:#1a1a1a;'>{total_pages}</b> "
                     f"</div>",
                     unsafe_allow_html=True,
                 )
             
             with nav_cols[4]:
-                if st.button("Вперёд →", disabled=(page >= total_pages - 1), use_container_width=True, key="page_next"):
+                if st.button("Next →", disabled=(page >= total_pages - 1), use_container_width=True, key="page_next"):
                     st.session_state[page_state_key] = page + 1
                     st.rerun()
         page_data = filtered.iloc[start:end]
 
         # ============================================================
-        # Галерея — 4 колонки
+        # Gallery — 4 columns
         # ============================================================
         cols_per_row = 4
         rows = [page_data.iloc[i:i+cols_per_row] for i in range(0, len(page_data), cols_per_row)]
@@ -602,9 +733,7 @@ else:
             for col, (_, item) in zip(cols, row_data.iterrows()):
                 with col:
                     image_path = os.path.join(IMAGES_DIR, item["filename"])
-                    # st.write(f"DEBUG path: {image_path}")
                     data_url = encode_image(image_path)
-                    # st.write(f"DEBUG data_url: {data_url[:50] if data_url else 'None'}")
 
                     if data_url:
                         st.markdown(
@@ -618,7 +747,7 @@ else:
                         st.markdown(
                             '<div style="aspect-ratio:1;border-radius:8px;background:#fff;'
                             'display:flex;align-items:center;justify-content:center;color:#bbb;font-size:12px;">'
-                            'нет картинки</div>',
+                            'no image</div>',
                             unsafe_allow_html=True
                         )
 
@@ -629,36 +758,36 @@ else:
                         {item['ctr']:.2f}%
                     </div>
                     <div style="font-size:11px;color:#888;">
-                        {item['main_object']} · {item['impressions']:,.0f} показов
+                        {item['main_object']} · {item['impressions']:,.0f} impressions
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # Кнопка открыть
+                    # Open button
                     real_idx = filtered.index.get_loc(item.name) + start
                     df_idx = item.name
-                    if st.button("Разобрать", key=f"open_{df_idx}", width='stretch'):
+                    if st.button("Open", key=f"open_{df_idx}", width='stretch'):
                         st.session_state.selected_creative = df_idx
                         st.rerun()
 
-        # Навигация снизу галереи (дублирует верхнюю)
+        # Bottom navigation (duplicates top)
         if total_pages > 1:
             st.markdown("<div style='height:24px;'></div>", unsafe_allow_html=True)
             nav_cols = st.columns([1, 1, 3, 1, 1])
             
             with nav_cols[0]:
-                if st.button("← Назад", disabled=(page == 0), use_container_width=True, key="page_prev_bottom"):
+                if st.button("← Previous", disabled=(page == 0), use_container_width=True, key="page_prev_bottom"):
                     st.session_state[page_state_key] = page - 1
                     st.rerun()
             
             with nav_cols[2]:
                 st.markdown(
                     f"<div style='text-align:center;padding-top:6px;font-size:14px;color:#666;'>"
-                    f"Страница <b style='color:#1a1a1a;'>{page + 1}</b> из <b style='color:#1a1a1a;'>{total_pages}</b>"
+                    f"Page <b style='color:#1a1a1a;'>{page + 1}</b> of <b style='color:#1a1a1a;'>{total_pages}</b>"
                     f"</div>",
                     unsafe_allow_html=True,
                 )
             
             with nav_cols[4]:
-                if st.button("Вперёд →", disabled=(page >= total_pages - 1), use_container_width=True, key="page_next_bottom"):
+                if st.button("Next →", disabled=(page >= total_pages - 1), use_container_width=True, key="page_next_bottom"):
                     st.session_state[page_state_key] = page + 1
                     st.rerun()

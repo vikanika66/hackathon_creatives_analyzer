@@ -1,6 +1,6 @@
 """
-Страница Insights — готовые аналитические выводы по бренду.
-Для маркетологов, клиентов и дизайнеров.
+Insights page — ready-made analytical views per brand.
+For marketing managers, brand clients, and designers.
 """
 
 import streamlit as st
@@ -26,7 +26,7 @@ st.set_page_config(
 )
 
 # ============================================================
-# Стили (как в Upload)
+# Styles (same as Upload)
 # ============================================================
 PAGE_CSS = """
 <style>
@@ -77,14 +77,16 @@ PAGE_CSS = """
 st.markdown(COMMON_CSS, unsafe_allow_html=True)
 st.markdown(PAGE_CSS, unsafe_allow_html=True)
 
+def spacer(h=16):
+    st.markdown(f'<div style="height:{h}px;"></div>', unsafe_allow_html=True)
 
 # ============================================================
-# Данные
+# Data
 # ============================================================
 df, shap_df, feature_cols, interactions_df = load_data()
 
 
-# Читаемые имена тегов
+# Human-readable tag names
 TAG_DISPLAY_NAMES = {
     "has_person": "person",
     "close_up": "close-up",
@@ -100,7 +102,7 @@ TAG_DISPLAY_NAMES = {
 }
 
 def categorize_strength(value, strong_threshold, weak_threshold):
-    """Категоризирует связь: (направление, сила)."""
+    """Categorize correlation: (direction, strength)."""
     abs_v = abs(value)
     if abs_v < weak_threshold:
         return "neutral", "none"
@@ -122,60 +124,60 @@ def divider():
 
 
 # ============================================================
-# UI: Заголовок и фильтры
+# UI: Title and filters
 # ============================================================
 st.title("📊 Insights")
-st.caption("Готовые аналитические выводы по выбранному бренду — для маркетинга, клиентов и дизайнеров")
+st.caption("Ready-made analytical views per brand — for marketing managers, clients, and designers")
 
-# Фильтры
+# Filters
 col_brand, col_year = st.columns([1, 1])
 
 with col_brand:
     all_brands = sorted(df["brand"].unique().tolist())
     selected_brand = st.selectbox(
-        "Бренд",
+        "Brand",
         options=all_brands,
-        help="Выбери бренд для аналитики"
+        help="Choose a brand to analyze"
     )
 
 with col_year:
-    year_options = ["Все годы"] + sorted(df["year"].unique().tolist())
+    year_options = ["All years"] + sorted(df["year"].unique().tolist())
     selected_year = st.selectbox(
-        "Год",
+        "Year",
         options=year_options,
-        help="Опционально — фильтр по году"
+        help="Optional — filter by year"
     )
 
-# Фильтруем данные
+# Filter data
 df_brand = df[df["brand"] == selected_brand].copy()
-if selected_year != "Все годы":
+if selected_year != "All years":
     df_brand = df_brand[df_brand["year"] == int(selected_year)]
 
-# Соответствующие SHAP данные
+# Corresponding SHAP data
 filenames = df_brand["filename"].tolist()
 shap_brand = shap_df[shap_df["filename"].isin(filenames)].copy()
 
-# Базовые данные для сравнения (вся база)
+# Baseline data for comparison (whole database)
 df_all = df.copy()
-if selected_year != "Все годы":
+if selected_year != "All years":
     df_all = df_all[df_all["year"] == int(selected_year)]
 
 if len(df_brand) < 10:
-    st.warning(f"⚠️ В выбранном сегменте только {len(df_brand)} креативов. Аналитика может быть неточной.")
+    st.warning(f"⚠️ Only {len(df_brand)} creatives in the selected segment. Analytics may be unreliable.")
 
-st.caption(f"Аналитика на основе **{len(df_brand)}** креативов бренда **{selected_brand}**" + 
-           (f" за **{selected_year}**" if selected_year != "Все годы" else ""))
+st.caption(f"Analysis based on **{len(df_brand)}** creatives of brand **{selected_brand}**" + 
+           (f" in **{selected_year}**" if selected_year != "All years" else ""))
 
 
 # ============================================================
-# БЛОК 1: Общая статистика бренда
+# BLOCK 1: Overall brand statistics
 # ============================================================
 divider()
 
-st.markdown('<div class="section-title">Общая статистика</div>', unsafe_allow_html=True)
-st.markdown('<div class="section-subtitle">Как бренд выглядит относительно всей базы</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Overall statistics</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-subtitle">How the brand looks compared to the entire database</div>', unsafe_allow_html=True)
 
-# Считаем метрики
+# Compute metrics
 brand_avg_ctr = df_brand["ctr"].mean()
 brand_median_ctr = df_brand["ctr"].median()
 brand_max_ctr = df_brand["ctr"].max()
@@ -185,51 +187,66 @@ brand_count = len(df_brand)
 industry_avg_ctr = df_all["ctr"].mean()
 ctr_diff = brand_avg_ctr - industry_avg_ctr
 
-# Сравнение со средним
+# Comparison with average
 diff_color = "#1D9E75" if ctr_diff > 0 else "#E24B4A"
 diff_sign = "+" if ctr_diff > 0 else ""
-diff_text = f"{diff_sign}{ctr_diff:.2f}% относительно всех CTR ({industry_avg_ctr:.2f}%)"
+diff_text = f"{diff_sign}{ctr_diff:.2f}% vs all CTR ({industry_avg_ctr:.2f}%)"
 
 st.markdown(f"""
 <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:12px;">
     <div class="stat-box">
-        <div class="stat-label">Креативов</div>
+        <div class="stat-label">Creatives</div>
         <div class="stat-value">{brand_count}</div>
     </div>
     <div class="stat-box">
-        <div class="stat-label">Средний CTR</div>
+        <div class="stat-label">Average CTR</div>
         <div class="stat-value">{brand_avg_ctr:.2f}%</div>
         <div class="stat-comparison" style="color:{diff_color};">{diff_text}</div>
     </div>
     <div class="stat-box">
-        <div class="stat-label">Медианный CTR</div>
+        <div class="stat-label">Median CTR</div>
         <div class="stat-value">{brand_median_ctr:.2f}%</div>
     </div>
     <div class="stat-box">
-        <div class="stat-label">Диапазон</div>
+        <div class="stat-label">Range</div>
         <div class="stat-value" style="font-size:18px;">{brand_min_ctr:.2f}% — {brand_max_ctr:.2f}%</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
+spacer()
+
+
+with st.expander("ℹ️ How this is calculated"):
+    st.markdown("""
+    **Brand creatives** — total count of creatives in the selected brand and year filter.
+    
+    **Average / Median CTR** — calculated across all brand creatives in the filter.
+    
+    **CTR range** — minimum and maximum CTR among brand creatives.
+    
+    **Comparison with industry** — difference between brand's average CTR and the
+    average CTR across all creatives in the entire database (within the same year if year filter is applied).
+    Green means the brand performs above industry average, red means below.
+    """)
 
 # ============================================================
-# БЛОК 2: Топ-5 сильных и слабых тегов
+# BLOCK 2: Top-5 strong and weak tags
 # ============================================================
 divider()
 
-st.markdown('<div class="section-title">Что работает у бренда</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">What works for the brand</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="section-subtitle">Как часто каждый тег встречается в креативах с высоким или низким CTR. '
-    'Это паттерн в данных, не гарантированный эффект.</div>',
+    '<div class="section-subtitle">How often each tag appears in creatives with high or low CTR. '
+    'This is a pattern in the data, not a guaranteed effect.</div>',
     unsafe_allow_html=True
 )
 
-# Пороги
+# Thresholds
 TAG_STRONG = 0.30
 TAG_WEAK = 0.01
 
-# Считаем средний SHAP для каждого тега когда он активен
+# Average SHAP for each tag when active
 tag_effects = []
 for feat in BINARY_FEATURES:
     if feat in shap_brand.columns:
@@ -246,7 +263,7 @@ tag_effects_df = pd.DataFrame(tag_effects).sort_values("avg_shap", ascending=Fal
 
 
 def render_tag_row(row, kind):
-    """kind: 'strong' или 'weak'"""
+    """kind: 'strong' or 'weak'"""
     val = row["avg_shap"]
     abs_v = abs(val)
     
@@ -263,14 +280,14 @@ def render_tag_row(row, kind):
     <div style="padding:10px 0;border-bottom:1px solid #f5f3ed;display:flex;align-items:center;gap:12px;">
         <span style="min-width:50px;text-align:center;">{arrow}</span>
         <span style="flex:1;font-size:14px;">{display_name(row['tag'])}</span>
-        <span style="font-size:11px;color:#888;">{row['count']} креативов</span>
+        <span style="font-size:11px;color:#888;">{row['count']} creatives</span>
     </div>
     """
 
 
 TOP_N = 5
 
-# Кандидаты в каждую колонку — строго по знаку и не ниже порога WEAK
+# Candidates for each column — strictly by sign, not below WEAK threshold
 strong_candidates = tag_effects_df[
     tag_effects_df["avg_shap"] >= TAG_WEAK
 ].head(TOP_N)
@@ -285,13 +302,13 @@ col_strong, col_weak = st.columns(2, gap="large")
 with col_strong:
     st.markdown(
         "<div style='font-size:16px;font-weight:600;margin-bottom:12px;color:#1D9E75;'>"
-        "✓ Сильные теги</div>",
+        "✓ Strong tags</div>",
         unsafe_allow_html=True,
     )
     if len(strong_candidates) == 0:
         st.markdown(
             "<div style='color:#888;font-size:14px;padding:10px 0;'>"
-            "У бренда нет тегов, которые заметно связаны с высоким CTR</div>",
+            "No tags clearly correlate with high CTR for this brand</div>",
             unsafe_allow_html=True,
         )
     else:
@@ -301,29 +318,51 @@ with col_strong:
 with col_weak:
     st.markdown(
         "<div style='font-size:16px;font-weight:600;margin-bottom:12px;color:#E24B4A;'>"
-        "✗ Слабые теги</div>",
+        "✗ Weak tags</div>",
         unsafe_allow_html=True,
     )
     if len(weak_candidates) == 0:
         st.markdown(
             "<div style='color:#888;font-size:14px;padding:10px 0;'>"
-            "У бренда нет тегов, которые заметно связаны с низким CTR</div>",
+            "No tags clearly correlate with low CTR for this brand</div>",
             unsafe_allow_html=True,
         )
     else:
         rows_html = "".join(render_tag_row(row, "weak") for _, row in weak_candidates.iterrows())
         st.markdown(rows_html, unsafe_allow_html=True)
 
+spacer()
+
+with st.expander("ℹ️ How this is calculated"):
+    st.markdown("""
+    For each visual tag (e.g. *has person*, *warm tones*, *close-up*), we calculate
+    the average SHAP value across all brand creatives where that tag is active.
+    SHAP shows how much that specific tag pushes CTR up or down compared to the brand's baseline.
+    
+    Tags are ranked by their average SHAP and split into two columns:
+    
+    - **Strong tags** — average SHAP is positive, meaning creatives with this tag tend to have higher CTR
+    - **Weak tags** — average SHAP is negative, meaning creatives with this tag tend to have lower CTR
+    
+    Arrow indicators show the strength of the correlation:
+    
+    - ↑↑ / ↓↓ — strong (≥ 0.30 CTR percentage points)
+    - ↑ / ↓ — moderate (≥ 0.01)
+    - — — neutral (below 0.01)
+    
+    A tag must appear in at least 3 brand creatives to be shown. This is a pattern in the data,
+    not a guaranteed effect — actual CTR depends on targeting and audience too.
+    """)
 
 # ============================================================
-# БЛОК 3: Карта взаимодействий тегов
+# BLOCK 3: Tag interactions heatmap
 # ============================================================
 divider()
 
-st.markdown('<div class="section-title">Карта взаимодействий тегов</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Tag interactions map</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="section-subtitle">Какие пары тегов чаще встречаются вместе в успешных или слабых креативах. '
-    '<b>↑↑ / ↓↓</b> — сильная связь, <b>↑ / ↓</b> — умеренная, пусто — нейтральная.</div>',
+    '<div class="section-subtitle">Which tag pairs more often appear together in successful or weak creatives. '
+    '<b>↑↑ / ↓↓</b> — strong correlation, <b>↑ / ↓</b> — moderate, empty — neutral.</div>',
     unsafe_allow_html=True
 )
 
@@ -333,7 +372,7 @@ INT_WEAK = 0.01
 all_binary = BINARY_FEATURES
 n = len(all_binary)
 
-# Строим матрицу значений
+# Build value matrix
 matrix = np.zeros((n, n))
 seg_filter = interactions_df["segment_type"] == "all"
 seg_data = interactions_df[seg_filter]
@@ -345,7 +384,7 @@ for _, row in seg_data.iterrows():
         matrix[i][j] = row["interaction"]
         matrix[j][i] = row["interaction"]
 
-# Конвертим в категории: -2, -1, 0, 1, 2
+# Convert to categories: -2, -1, 0, 1, 2
 def categorize_cell(val):
     abs_v = abs(val)
     if abs_v < INT_WEAK:
@@ -356,18 +395,18 @@ def categorize_cell(val):
 
 cat_matrix = np.vectorize(categorize_cell)(matrix)
 
-# Символы для отображения
+# Display symbols
 SYMBOLS = {-2: "↓↓", -1: "↓", 0: "", 1: "↑", 2: "↑↑"}
 text_matrix = np.vectorize(lambda x: SYMBOLS[int(x)])(cat_matrix)
 
-# Диагональ — пустые клетки без символа (тег сам с собой не сравнивается)
+# Clear diagonal — a tag doesn't compare with itself
 for i in range(n):
     text_matrix[i][i] = ""
-    cat_matrix[i][i] = 0  # нейтральный белый цвет
+    cat_matrix[i][i] = 0  # neutral white color
 
 labels = [display_name(t) for t in all_binary]
 
-# Дискретная цветовая шкала
+# Discrete color scale
 fig = go.Figure(data=go.Heatmap(
     z=cat_matrix,
     x=labels,
@@ -376,11 +415,11 @@ fig = go.Figure(data=go.Heatmap(
     texttemplate="%{text}",
     textfont={"size": 16, "color": "#1a1a1a"},
     colorscale=[
-        [0.0,  "#e8506e"],   # -2 сильное ослабление
-        [0.25, "#f5b0bc"],   # -1 слабое
-        [0.5,  "#ffffff"],   # 0 нейтрально
-        [0.75, "#d5f0b0"],   # +1 слабое
-        [1.0,  "#aef33e"],   # +2 сильное
+        [0.0,  "#e8506e"],   # -2 strong negative
+        [0.25, "#f5b0bc"],   # -1 weak negative
+        [0.5,  "#ffffff"],   # 0 neutral
+        [0.75, "#d5f0b0"],   # +1 weak positive
+        [1.0,  "#aef33e"],   # +2 strong positive
     ],
     zmin=-2,
     zmax=2,
@@ -400,27 +439,52 @@ st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 st.markdown("""
 <div style="font-size:13px;color:#888;margin-top:8px;">
-💡 <b>Как читать:</b> Зелёные клетки со стрелками вверх — пара тегов чаще встречается в креативах с высоким CTR. 
-Красные со стрелками вниз — в креативах с низким CTR. 
-Пустые клетки — связь нейтральная или пары встречаются редко.
+💡 <b>How to read:</b> Green cells with up arrows — tag pairs that appear more often in high-CTR creatives. 
+Red cells with down arrows — pairs more often in low-CTR creatives. 
+Empty cells — neutral or rare pairings.
 </div>
 """, unsafe_allow_html=True)
 
+spacer()
+
+with st.expander("ℹ️ How this is calculated"):
+    st.markdown("""
+    For each pair of tags (A, B), we measure how much **adding the second tag** to a creative
+    that already has the first tag changes CTR — beyond what each tag would contribute alone.
+    This isolates the **interaction effect** of the pair.
+    
+    Calculation: average CTR of creatives with both A and B, minus the sum of individual
+    contributions of A and B taken separately.
+    
+    Cell legend:
+    
+    - ↑↑ (bright green) — strong positive interaction: the pair works much better together than apart
+    - ↑ (light green) — moderate positive interaction
+    - empty (white) — neutral: the pair behaves like the sum of its parts
+    - ↓ (light red) — moderate negative interaction
+    - ↓↓ (bright red) — strong negative interaction: the pair works worse together
+    
+    The diagonal is empty because a tag can't interact with itself.
+    
+    Calculations use the same SHAP-based methodology as the single-tag analysis,
+    aggregated across the full database.
+    """)
+
 # ============================================================
-# БЛОК 4: Лучшие и худшие креативы бренда
+# BLOCK 4: Best and worst brand creatives
 # ============================================================
 divider()
 
-st.markdown('<div class="section-title">Лучшие и худшие креативы</div>', unsafe_allow_html=True)
-st.markdown('<div class="section-subtitle">Топ-5 перформеров и аутсайдеров бренда — учимся на своих кейсах</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Best and worst creatives</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-subtitle">Top-5 performers and bottom-5 underachievers — learn from your own cases</div>', unsafe_allow_html=True)
 
-# Путь к картинкам — поправь если у тебя другая папка
+# Image path — change if you use a different folder
 IMAGES_DIR = "images"
 
 import os
 
 def encode_image(path):
-    """Конвертит картинку в data URL для inline HTML."""
+    """Convert image to data URL for inline HTML."""
     try:
         ext = Path(path).suffix.lstrip(".").lower()
         if ext == "jpg":
@@ -431,48 +495,12 @@ def encode_image(path):
     except Exception:
         return None
 
-# def render_creative_card(row, rank, tone):
-#     """Карточка одного креатива. Подпись сверху, картинка снизу — так высота картинок не ломает выравнивание."""
-#     color = "#1D9E75" if tone == "good" else "#E24B4A"
-#     sign = "🏆" if tone == "good" else "⚠️"
-    
-#     # Собираем активные теги (макс 4 для компактности)
-#     active_tags = []
-#     for feat in BINARY_FEATURES:
-#         if feat in row.index and row[feat] == True:
-#             active_tags.append(display_name(feat))
-#         if len(active_tags) >= 4:
-#             break
-    
-#     tags_html = " · ".join(f"<span style='color:#666;'>{t}</span>" for t in active_tags) or "<span style='color:#bbb;'>—</span>"
-    
-#     # Подпись СВЕРХУ — фиксированная высота, чтобы выровнять начало картинок
-#     st.markdown(f"""
-#     <div style="min-height:60px;margin-bottom:8px;">
-#         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-#             <span style="font-size:14px;">{sign}</span>
-#             <span style="color:{color};font-weight:600;font-size:16px;">{row['ctr']:.2f}%</span>
-#             <span style="font-size:11px;color:#888;">#{rank}</span>
-#         </div>
-#         <div style="font-size:11px;line-height:1.5;">{tags_html}</div>
-#     </div>
-#     """, unsafe_allow_html=True)
-    
-#     # Картинка снизу
-#     image_path = os.path.join(IMAGES_DIR, row["filename"])
-#     try:
-#         st.image(image_path, use_container_width=True)
-#     except Exception:
-#         st.markdown(
-#             "<div style='aspect-ratio:1;background:#f5f3ed;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:12px;'>нет картинки</div>",
-#             unsafe_allow_html=True
-#         )
 
 def render_creative_card(row, rank, tone):
     color = "#1D9E75" if tone == "good" else "#E24B4A"
     sign = "🏆" if tone == "good" else "⚠️"
     
-    # Активные теги (макс 4)
+    # Active tags (max 4)
     active_tags = []
     for feat in BINARY_FEATURES:
         if feat in row.index and row[feat] == True:
@@ -482,7 +510,7 @@ def render_creative_card(row, rank, tone):
     
     tags_html = " · ".join(f"<span style='color:#666;'>{t}</span>" for t in active_tags) or "<span style='color:#bbb;'>—</span>"
     
-    # Картинка в base64 — contain, чтобы было целиком
+    # Image as base64 — contain, to show full
     image_path = os.path.join(IMAGES_DIR, row["filename"])
     data_url = encode_image(image_path)
     
@@ -497,10 +525,10 @@ def render_creative_card(row, rank, tone):
         image_html = (
             '<div style="aspect-ratio:1;border-radius:8px;background:#fff;'
             'display:flex;align-items:center;justify-content:center;color:#bbb;font-size:12px;">'
-            'нет картинки</div>'
+            'no image</div>'
         )
     
-    # Карточка одной строкой, без обёртки <a>
+    # Card as one block, no <a> wrap
     card_html = (
         '<div style="background:#faf9f5;border-radius:12px;padding:14px;">'
             '<div style="height:64px;margin-bottom:10px;overflow:hidden;">'
@@ -517,9 +545,9 @@ def render_creative_card(row, rank, tone):
     
     st.markdown(card_html, unsafe_allow_html=True)
     
-    # Кнопка-ссылка под карточкой
+    # Link button below card
     st.link_button(
-        "Открыть в Library →",
+        "Open in Library →",
         f"/Library?creative={quote(str(row['filename']))}",
         use_container_width=True,
     )
@@ -529,36 +557,49 @@ df_sorted = df_brand.sort_values("ctr", ascending=False).reset_index(drop=True)
 top_5 = df_sorted.head(5)
 bottom_5 = df_sorted.tail(5).iloc[::-1].reset_index(drop=True)
 
-# Топ-5
-st.markdown("<div style='font-size:15px;font-weight:600;margin:8px 0 12px 0;color:#1D9E75;'>Лучшие 5</div>", unsafe_allow_html=True)
+# Top-5
+st.markdown("<div style='font-size:15px;font-weight:600;margin:8px 0 12px 0;color:#1D9E75;'>Top 5</div>", unsafe_allow_html=True)
 cols = st.columns(5, gap="small")
 for i, col in enumerate(cols):
     if i < len(top_5):
         with col:
             render_creative_card(top_5.iloc[i], i + 1, "good")
 
-# Худшие 5
-st.markdown("<div style='font-size:15px;font-weight:600;margin:24px 0 12px 0;color:#E24B4A;'>Худшие 5</div>", unsafe_allow_html=True)
+# Bottom-5
+st.markdown("<div style='font-size:15px;font-weight:600;margin:24px 0 12px 0;color:#E24B4A;'>Bottom 5</div>", unsafe_allow_html=True)
 cols = st.columns(5, gap="small")
 for i, col in enumerate(cols):
     if i < len(bottom_5):
         with col:
             render_creative_card(bottom_5.iloc[i], i + 1, "bad")
 
+spacer()
+
+with st.expander("ℹ️ How this is calculated"):
+    st.markdown("""
+    Creatives are ranked by their **actual CTR** (not predicted).
+    
+    - **Top 5** — five creatives of the brand with the highest CTR
+    - **Bottom 5** — five creatives with the lowest CTR
+    
+    Click "Open in Library" on any card to see the full breakdown of that creative —
+    its tags, how each tag correlates with CTR in your database, and which tag combinations
+    work for or against it.
+    """)
 
 # ============================================================
-# БЛОК 5: Аномалии — креативы выпадающие из паттерна тегов
+# BLOCK 5: Anomalies — creatives falling outside the tag pattern
 # ============================================================
 divider()
 
-st.markdown('<div class="section-title">Аномалии: креативы выпадающие из паттерна тегов</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Anomalies: creatives outside the tag pattern</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="section-subtitle">Креативы, у которых CTR заметно отличается от других креативов '
-    'с похожим набором тегов. Подсказывают: тут работает (или не работает) что-то <b>помимо</b> видимых элементов.</div>',
+    '<div class="section-subtitle">Creatives whose CTR differs significantly from others '
+    'with a similar tag combination. They suggest that something <b>beyond</b> the visible elements is at play.</div>',
     unsafe_allow_html=True
 )
 
-# Мерджим predicted_ctr в df_brand
+# Merge predicted_ctr into df_brand
 brand_with_pred = df_brand.merge(
     shap_brand[["filename", "predicted_ctr"]],
     on="filename",
@@ -576,14 +617,14 @@ def render_anomaly_card(row, kind):
         color = "#1D9E75"
         icon = "💎"
         label = "Hidden gem"
-        comparison_label = "CTR выше похожих"
+        comparison_label = "CTR above similar"
     else:
         color = "#E24B4A"
         icon = "📉"
         label = "Underperformer"
-        comparison_label = "CTR ниже похожих"
+        comparison_label = "CTR below similar"
 
-    # Активные теги (макс 3)
+    # Active tags (max 3)
     active_tags = []
     for feat in BINARY_FEATURES:
         if feat in row.index and row[feat] == True:
@@ -593,7 +634,7 @@ def render_anomaly_card(row, kind):
 
     tags_html = " · ".join(f"<span style='color:#666;'>{t}</span>" for t in active_tags) or "<span style='color:#bbb;'>—</span>"
 
-    # Картинка
+    # Image
     image_path = os.path.join(IMAGES_DIR, row["filename"])
     data_url = encode_image(image_path)
 
@@ -608,10 +649,10 @@ def render_anomaly_card(row, kind):
         image_html = (
             '<div style="aspect-ratio:1;border-radius:8px;background:#fff;'
             'display:flex;align-items:center;justify-content:center;color:#bbb;font-size:12px;">'
-            'нет картинки</div>'
+            'no image</div>'
         )
 
-    # Стрелка по силе аномалии
+    # Arrow by anomaly strength
     residual = row["residual"]
     abs_r = abs(residual)
     if abs_r < 0.10:
@@ -644,7 +685,7 @@ def render_anomaly_card(row, kind):
     st.markdown(card_html, unsafe_allow_html=True)
 
     st.link_button(
-        "Открыть в Library →",
+        "Open in Library →",
         f"/Library?creative={quote(str(row['filename']))}",
         use_container_width=True,
     )
@@ -653,11 +694,11 @@ def render_anomaly_card(row, kind):
 # Hidden gems
 st.markdown(
     "<div style='font-size:15px;font-weight:600;margin:8px 0 12px 0;color:#1D9E75;'>"
-    "💎 Hidden gems — CTR выше похожих по тегам</div>",
+    "💎 Hidden gems — CTR above creatives with similar tags</div>",
     unsafe_allow_html=True,
 )
 if len(hidden_gems) == 0:
-    st.info("Недостаточно данных для определения hidden gems в этом сегменте")
+    st.info("Not enough data to detect hidden gems in this segment")
 else:
     cols = st.columns(3, gap="small")
     for i, col in enumerate(cols):
@@ -666,9 +707,9 @@ else:
                 render_anomaly_card(hidden_gems.iloc[i], "gem")
     st.markdown(
         "<div style='font-size:13px;color:#666;margin:12px 0 24px 0;'>"
-        "💡 У этих креативов CTR заметно выше, чем у других с похожим набором тегов. "
-        "Это значит, что работает что-то <b>помимо</b> видимых тегов — копирайт, эмоция, исполнение. "
-        "Стоит разобрать руками: что в них особенного, что нельзя описать тегом?"
+        "💡 These creatives have notably higher CTR than others with similar tag combinations. "
+        "Something is working <b>beyond</b> the visible tags — copy, emotion, execution. "
+        "Worth a manual review: what makes them special that can't be captured by a tag?"
         "</div>",
         unsafe_allow_html=True
     )
@@ -676,11 +717,11 @@ else:
 # Underperformers
 st.markdown(
     "<div style='font-size:15px;font-weight:600;margin:8px 0 12px 0;color:#E24B4A;'>"
-    "📉 Underperformers — CTR ниже похожих по тегам</div>",
+    "📉 Underperformers — CTR below creatives with similar tags</div>",
     unsafe_allow_html=True,
 )
 if len(underperformers) == 0:
-    st.info("Недостаточно данных для определения underperformers в этом сегменте")
+    st.info("Not enough data to detect underperformers in this segment")
 else:
     cols = st.columns(3, gap="small")
     for i, col in enumerate(cols):
@@ -689,27 +730,46 @@ else:
                 render_anomaly_card(underperformers.iloc[i], "underperformer")
     st.markdown(
         "<div style='font-size:13px;color:#666;margin-top:12px;'>"
-        "💡 У этих креативов CTR заметно ниже, чем у других с похожим набором тегов. "
-        "Концепция (набор тегов) похожа на сильные креативы, но <b>исполнение</b> подкачало — "
-        "качество фотографии, нечитаемый текст, слабый CTA, неудачная композиция."
+        "💡 These creatives have notably lower CTR than others with similar tag combinations. "
+        "The concept (tag combination) is close to strong creatives, but the <b>execution</b> falls short — "
+        "photo quality, unreadable text, weak CTA, poor composition."
         "</div>",
         unsafe_allow_html=True
     )
 
+spacer()
+
+with st.expander("ℹ️ How this is calculated"):
+    st.markdown("""
+    For each creative we calculate the **residual** = actual CTR − expected CTR for creatives
+    with the same tag combination. The expected CTR comes from the LightGBM model trained on
+    the full database.
+    
+    A large positive residual means: this creative performs better than other creatives with
+    similar visual elements — something is working **beyond** the tags we can see.
+    A large negative residual means: it performs worse than similar creatives — likely something
+    in execution (photo quality, copy, layout) drags it down.
+    
+    - **💎 Hidden gems** — top 3 by residual (CTR above similar creatives)
+    - **📉 Underperformers** — bottom 3 by residual (CTR below similar creatives)
+    
+    These are signals to investigate manually — what makes the gems special that we can't
+    capture with tags? What's broken in the underperformers?
+    """)
 
 # ============================================================
-# БЛОК 6: Тренд по годам (не зависит от фильтра по году)
+# BLOCK 6: Year-over-year trend (ignores year filter)
 # ============================================================
 divider()
 
-st.markdown('<div class="section-title">Тренд по годам</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Year-over-year trend</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="section-subtitle">Как менялась позиция бренда в индустрии и какие теги становились важнее. '
-    '<b>Фильтр по году не применяется</b> — тренд всегда по всем годам бренда.</div>',
+    '<div class="section-subtitle">How the brand position in the industry evolved and which tags gained or lost weight. '
+    '<b>The year filter is not applied here</b> — the trend is always calculated across all available brand years.</div>',
     unsafe_allow_html=True,
 )
 
-# Игнорируем фильтр по году — тренд считаем по всем данным бренда
+# Ignore year filter — calculate trend across all brand data
 df_brand_all_years = df[df["brand"] == selected_brand].copy()
 filenames_all = df_brand_all_years["filename"].tolist()
 shap_brand_all = shap_df[shap_df["filename"].isin(filenames_all)].copy()
@@ -718,18 +778,18 @@ years_available = sorted(df_brand_all_years["year"].unique().tolist())
 
 if len(years_available) < 2:
     st.info(
-        f"У бренда {selected_brand} креативы только за один год "
-        f"({years_available[0] if years_available else '—'}). Тренд построить нельзя."
+        f"Brand {selected_brand} has creatives only for one year "
+        f"({years_available[0] if years_available else '—'}). Cannot build a trend."
     )
 else:
-    # === Часть 1: Позиция бренда в индустрии ===
+    # === Part 1: Brand position in industry ===
     st.markdown(
         "<div style='font-size:15px;font-weight:600;margin:8px 0 12px 0;'>"
-        "Позиция бренда в индустрии</div>",
+        "Brand position in industry</div>",
         unsafe_allow_html=True,
     )
     
-    # Считаем позицию бренда (перцентиль) в каждом году
+    # Calculate brand position (percentile) for each year
     position_data = []
     for year in years_available:
         df_year_all = df[df["year"] == year]
@@ -746,19 +806,19 @@ else:
     position_df = pd.DataFrame(position_data)
     
     def position_label(p):
-        if p >= 75: return ("Топ индустрии", "🏆", "#1D9E75")
-        if p >= 50: return ("Выше среднего", "📈", "#7ABE5C")
-        if p >= 25: return ("Ниже среднего", "📊", "#E8A24A")
-        return ("Нижний сегмент", "⚠️", "#E24B4A")
+        if p >= 75: return ("Top of industry", "🏆", "#1D9E75")
+        if p >= 50: return ("Above average", "📈", "#7ABE5C")
+        if p >= 25: return ("Below average", "📊", "#E8A24A")
+        return ("Bottom segment", "⚠️", "#E24B4A")
     
-    # Берём предпоследний и последний год — сравниваем актуальную динамику
+    # Take second-to-last and last year — compare actual recent dynamics
     first_row = position_df.iloc[-2]
     last_row = position_df.iloc[-1]
     
     first_label, first_icon, first_color = position_label(first_row["percentile"])
     last_label, last_icon, last_color = position_label(last_row["percentile"])
     
-    # CTR бренда и индустрии для каждого года
+    # Brand and industry CTR for each year
     first_year_int = int(first_row["year"])
     last_year_int = int(last_row["year"])
     
@@ -772,28 +832,28 @@ else:
     
     def diff_html(diff):
         if diff > 0:
-            return f'<span style="color:#1D9E75;font-weight:600;">+{diff:.2f}%</span> над индустрией'
+            return f'<span style="color:#1D9E75;font-weight:600;">+{diff:.2f}%</span> above industry'
         elif diff < 0:
-            return f'<span style="color:#E24B4A;font-weight:600;">{diff:.2f}%</span> к индустрии'
+            return f'<span style="color:#E24B4A;font-weight:600;">{diff:.2f}%</span> below industry'
         else:
-            return '<span style="color:#888;font-weight:600;">на уровне индустрии</span>'
+            return '<span style="color:#888;font-weight:600;">at industry level</span>'
     
-    # Направление изменения
+    # Direction of change
     diff_p = last_row["percentile"] - first_row["percentile"]
     if diff_p > 10:
         trend_arrow = '<span style="color:#1D9E75;font-size:42px;font-weight:600;">↑</span>'
-        trend_text = "укрепил позиции"
+        trend_text = "gained position"
         trend_color = "#1D9E75"
     elif diff_p < -10:
         trend_arrow = '<span style="color:#E24B4A;font-size:42px;font-weight:600;">↓</span>'
-        trend_text = "сдал позиции"
+        trend_text = "lost position"
         trend_color = "#E24B4A"
     else:
         trend_arrow = '<span style="color:#888;font-size:42px;">→</span>'
-        trend_text = "позиция стабильна"
+        trend_text = "position stable"
         trend_color = "#888"
     
-    # Плашки: было → стрелка → стало
+    # Plates: before → arrow → after
     st.markdown(f"""
     <div style="display:grid;grid-template-columns:1fr 80px 1fr;gap:12px;align-items:center;margin-bottom:16px;">
         <div style="background:#faf9f5;border-radius:12px;padding:24px;text-align:center;">
@@ -802,10 +862,10 @@ else:
             <div style="font-size:18px;font-weight:600;color:{first_color};margin-bottom:14px;">{first_label}</div>
             <div style="font-size:13px;color:#666;line-height:1.6;padding-top:12px;border-top:1px solid #eae8df;">
                 <div style="margin-bottom:4px;">
-                    CTR бренда: <b style="color:#1a1a1a;">{first_brand_ctr:.2f}%</b>
+                    Brand CTR: <b style="color:#1a1a1a;">{first_brand_ctr:.2f}%</b>
                 </div>
                 <div style="margin-bottom:4px;color:#888;">
-                    Индустрия: {first_ind_ctr:.2f}%
+                    Industry: {first_ind_ctr:.2f}%
                 </div>
                 <div style="margin-top:6px;font-size:13px;">
                     {diff_html(first_diff)}
@@ -819,10 +879,10 @@ else:
             <div style="font-size:18px;font-weight:600;color:{last_color};margin-bottom:14px;">{last_label}</div>
             <div style="font-size:13px;color:#666;line-height:1.6;padding-top:12px;border-top:1px solid #eae8df;">
                 <div style="margin-bottom:4px;">
-                    CTR бренда: <b style="color:#1a1a1a;">{last_brand_ctr:.2f}%</b>
+                    Brand CTR: <b style="color:#1a1a1a;">{last_brand_ctr:.2f}%</b>
                 </div>
                 <div style="margin-bottom:4px;color:#888;">
-                    Индустрия: {last_ind_ctr:.2f}%
+                    Industry: {last_ind_ctr:.2f}%
                 </div>
                 <div style="margin-top:6px;font-size:13px;">
                     {diff_html(last_diff)}
@@ -832,27 +892,27 @@ else:
     </div>
     """, unsafe_allow_html=True)
     
-    # Итоговая фраза
+    # Summary phrase
     st.markdown(
         f"<div style='font-size:14px;color:#1a1a1a;margin:8px 0 24px 0;'>"
-        f"С {first_year_int} по {last_year_int} бренд "
-        f"<b style='color:{trend_color};'>{trend_text}</b> в индустрии."
+        f"From {first_year_int} to {last_year_int}, the brand "
+        f"<b style='color:{trend_color};'>{trend_text}</b> in the industry."
         f"</div>",
         unsafe_allow_html=True,
     )
     
-    # === Часть 2: Что изменилось в работе тегов ===
+    # === Part 2: What changed in how tags work ===
     first_year = years_available[-2]
     last_year = years_available[-1]
     
     st.markdown(
         f"<div style='font-size:15px;font-weight:600;margin:24px 0 4px 0;'>"
-        f"Что изменилось: {first_year} → {last_year}</div>",
+        f"What changed: {first_year} → {last_year}</div>",
         unsafe_allow_html=True,
     )
     st.markdown(
         "<div style='font-size:13px;color:#888;margin-bottom:12px;'>"
-        "Какие теги стали сильнее или слабее связаны с CTR. Стрелки показывают направление изменения.</div>",
+        "Which tags became more or less correlated with CTR. Arrows show the direction of change.</div>",
         unsafe_allow_html=True,
     )
     
@@ -889,12 +949,12 @@ else:
     
     if len(deltas) == 0:
         st.info(
-            f"Недостаточно данных для сравнения {first_year} и {last_year}. "
-            "Нужно минимум 2 креатива с каждым тегом в каждом из годов."
+            f"Not enough data to compare {first_year} and {last_year}. "
+            "At least 2 creatives with each tag are needed in each year."
         )
     else:
-        DELTA_STRONG = 0.20
-        DELTA_WEAK = 0.05
+        DELTA_STRONG = 0.10
+        DELTA_WEAK = 0.01
         
         deltas_df = pd.DataFrame(deltas)
         deltas_df["abs_delta"] = deltas_df["delta"].abs()
@@ -923,16 +983,39 @@ else:
         rows_html = "".join(render_delta_row(row) for _, row in deltas_df.iterrows())
         st.markdown(rows_html, unsafe_allow_html=True)
         
-        # Краткий вывод
+        # Brief summary
         growth = deltas_df[deltas_df["delta"] >= DELTA_WEAK]
         decline = deltas_df[deltas_df["delta"] <= -DELTA_WEAK]
         
         summary_html = "<div style='font-size:13px;color:#666;margin-top:16px;line-height:1.7;'>"
         if len(growth) > 0:
             top_growth_tags = ", ".join(f"<b>{display_name(t)}</b>" for t in growth.head(3)["tag"])
-            summary_html += f"📈 <b style='color:#1D9E75;'>Усилили влияние:</b> {top_growth_tags}<br>"
+            summary_html += f"📈 <b style='color:#1D9E75;'>Gained weight:</b> {top_growth_tags}<br>"
         if len(decline) > 0:
             top_decline_tags = ", ".join(f"<b>{display_name(t)}</b>" for t in decline.tail(3)["tag"])
-            summary_html += f"📉 <b style='color:#E24B4A;'>Потеряли вес:</b> {top_decline_tags}"
+            summary_html += f"📉 <b style='color:#E24B4A;'>Lost weight:</b> {top_decline_tags}"
         summary_html += "</div>"
         st.markdown(summary_html, unsafe_allow_html=True)
+
+spacer()
+
+with st.expander("ℹ️ How this is calculated"):
+    st.markdown("""
+    **Brand position in industry.** For each year we calculate what percentile of industry CTR
+    the brand's average CTR falls into:
+    
+    - 75–100th percentile → 🏆 Top of industry
+    - 50–75th → 📈 Above average
+    - 25–50th → 📊 Below average
+    - 0–25th → ⚠️ Bottom segment
+    
+    We compare the **last two available years** to show where the brand moved.
+    The year filter at the top of the page is intentionally ignored here — the trend
+    needs the full timeline to be meaningful.
+    
+    **Tag changes.** For each tag we calculate the average SHAP across active creatives
+    in the first year and the second year, then show the difference. Tags ranked by absolute
+    delta — biggest changes (positive or negative) come first.
+    
+    A tag needs at least 2 active creatives in each year to be included.
+    """)

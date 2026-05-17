@@ -1,6 +1,6 @@
 """
-Страница загрузки и анализа нового креатива — версия 3.
-Чистая типографика, без белых карточек.
+Upload and analyze page — version 3.
+Clean typography, no white cards.
 """
 
 import streamlit as st
@@ -28,7 +28,7 @@ from openai import OpenAI
 
 @st.cache_resource
 def get_openai_client():
-    """Кэшированный OpenAI клиент."""
+    """Cached OpenAI client."""
     api_key = st.secrets.get("OPENAI_API_KEY")
     if not api_key:
         return None
@@ -36,24 +36,24 @@ def get_openai_client():
 
 
 def generate_image_via_openai(prompt, source_image_bytes, quality="medium"):
-    """Image-to-image. Размер подбирается под пропорции исходника."""
+    """Image-to-image. Size auto-picked based on source aspect."""
     client = get_openai_client()
     if client is None:
-        return None, "OPENAI_API_KEY не настроен в .streamlit/secrets.toml"
+        return None, "OPENAI_API_KEY is not set in .streamlit/secrets.toml"
     
     try:
         from io import BytesIO
         
         img = Image.open(BytesIO(source_image_bytes))
         
-        # Подбираем ближайший поддерживаемый размер по аспекту
+        # Pick closest supported size by aspect ratio
         aspect = img.width / img.height
         if aspect > 1.2:
-            size = "1536x1024"   # альбомный
+            size = "1536x1024"   # landscape
         elif aspect < 0.85:
-            size = "1024x1536"   # портретный
+            size = "1024x1536"   # portrait
         else:
-            size = "1024x1024"   # квадрат
+            size = "1024x1024"   # square
         
         if img.mode != "RGBA":
             img = img.convert("RGBA")
@@ -77,39 +77,14 @@ def generate_image_via_openai(prompt, source_image_bytes, quality="medium"):
         return None, str(e)
 
 
-# def build_generation_prompt(tags, recs_add, recs_remove):
-#     """Промпт для image-edit: что в существующем креативе изменить."""
-#     add_list = [display_name(f) for f, _ in recs_add]
-#     remove_list = [display_name(f) for f, _ in recs_remove]
-    
-#     instructions = []
-#     if remove_list:
-#         instructions.append(f"reduce or remove these elements: {', '.join(remove_list)}")
-#     if add_list:
-#         instructions.append(f"add or emphasize these elements: {', '.join(add_list)}")
-    
-#     if not instructions:
-#         return (
-#             "Refine this advertisement creative while keeping product, brand, "
-#             "composition, and overall style identical."
-#         )
-    
-#     prompt = (
-#         "Modify this advertisement creative to better match high-performing patterns. "
-#         f"Required changes: {'. '.join(instructions)}. "
-#         "Keep the same product, brand identity, typography style, and overall composition. "
-#         "Maintain commercial photography quality."
-#     )
-#     return prompt
-
 st.set_page_config(
-    page_title="Анализ — Creative Analyzer",
+    page_title="Analyze — Creative Analyzer",
     page_icon="🚀",
     layout="wide",
 )
 
 # ============================================================
-# Стили — чистая типографика
+# Styles — clean typography
 # ============================================================
 PAGE_CSS = """
 <style>
@@ -120,14 +95,12 @@ PAGE_CSS = """
         max-width: 1200px;
     }
 
-    /* Разделитель между блоками */
     .section-divider {
         height: 1px;
         background: #e8e6df;
         margin: 48px 0 36px 0;
     }
 
-    /* Заголовок секции */
     .section-title {
         font-size: 22px;
         font-weight: 500;
@@ -140,7 +113,6 @@ PAGE_CSS = """
         margin-bottom: 24px;
     }
 
-    /* Метрики */
     .metric-mini {
         background: #faf9f5;
         border-radius: 10px;
@@ -156,7 +128,6 @@ PAGE_CSS = """
         font-weight: 500;
     }
 
-    /* Теги */
     .tag-chip {
         display: inline-block;
         padding: 5px 12px;
@@ -178,13 +149,7 @@ PAGE_CSS = """
         color: #b5b3a8;
         text-decoration: line-through;
     }
-    .tag-absent {
-        background: #f0efe9;
-        color: #b5b3a8;
-        text-decoration: line-through;
-    }
 
-    /* Эффекты тегов */
     .effect-row {
         display: flex;
         align-items: center;
@@ -213,7 +178,6 @@ PAGE_CSS = """
         margin-left: 12px;
     }
 
-    /* Рекомендации */
     .rec-row {
         padding: 12px 0;
         border-bottom: 1px solid #f5f3ed;
@@ -223,7 +187,6 @@ PAGE_CSS = """
     .rec-add { color: #1D9E75; font-weight: 600; }
     .rec-remove { color: #E24B4A; font-weight: 600; }
 
-    /* Кнопка "Открыть" в похожих */
     .similar-open-btn {
         display: inline-block;
         margin-top: 8px;
@@ -242,8 +205,13 @@ PAGE_CSS = """
 st.markdown(COMMON_CSS, unsafe_allow_html=True)
 st.markdown(PAGE_CSS, unsafe_allow_html=True)
 
+
+def spacer(h=16):
+    st.markdown(f'<div style="height:{h}px;"></div>', unsafe_allow_html=True)
+
+
 # ============================================================
-# Данные
+# Data
 # ============================================================
 df, shap_df, feature_cols, interactions_df = load_data()
 model = load_model()
@@ -274,11 +242,7 @@ def display_name(tag):
     return clean
 
 def categorize_strength(value, strong_threshold, weak_threshold):
-    """Категоризирует связь: (направление, сила).
-    strong  → двойная стрелка
-    weak    → одинарная стрелка
-    neutral → серый дефис (связь слабая, шум)
-    """
+    """Categorize correlation: (direction, strength)."""
     abs_v = abs(value)
     if abs_v < weak_threshold:
         return "neutral", "none"
@@ -288,7 +252,7 @@ def categorize_strength(value, strong_threshold, weak_threshold):
 
 
 def arrow_symbol(direction, strength):
-    """HTML стрелок: двойная/одинарная цветная, или серый дефис для нейтральной связи."""
+    """HTML arrows: double/single colored, or gray dash for neutral."""
     if direction == "neutral":
         return '<span style="color:#b5b3a8;font-size:18px;">—</span>'
     if direction == "up":
@@ -300,7 +264,7 @@ def arrow_symbol(direction, strength):
     return f'<span style="color:{color};font-weight:600;font-size:20px;letter-spacing:-3px;">{arrows}</span>'
 
 # ============================================================
-# История
+# History
 # ============================================================
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -309,7 +273,7 @@ if "selected_history" not in st.session_state:
 
 
 # ============================================================
-# Функции анализа
+# Analysis functions
 # ============================================================
 
 def get_active_tags(tags):
@@ -327,10 +291,9 @@ def get_active_tags(tags):
 
 
 def calculate_tag_effects(active_tags):
-    """Только бинарные теги — категории сюда не идут."""
+    """Only binary tags — categories don't go here."""
     effects = []
     for tag in active_tags:
-        # Пропускаем категориальные (one-hot колонки)
         if tag not in BINARY_FEATURES:
             continue
         if tag in shap_df.columns:
@@ -345,11 +308,11 @@ def calculate_tag_effects(active_tags):
 import plotly.graph_objects as go
 
 def build_tag_effects_waterfall(effects, base_ctr):
-    """Компактный waterfall график для эффектов тегов."""
+    """Compact waterfall for tag effects."""
     if not effects:
         return None
     
-    labels = ["средний CTR"]
+    labels = ["average CTR"]
     values = [base_ctr]
     measure = ["absolute"]
     
@@ -360,7 +323,7 @@ def build_tag_effects_waterfall(effects, base_ctr):
         measure.append("relative")
         running_total += val
     
-    labels.append("ожидаемый CTR")
+    labels.append("expected CTR")
     values.append(0)
     measure.append("total")
     
@@ -391,19 +354,19 @@ def build_tag_effects_waterfall(effects, base_ctr):
 
 
 def find_similar_creatives(active_tags, food_type=None, drink_type=None, top_n=20):
-    """Ищем похожие, опционально фильтруя по категории."""
+    """Find similar creatives, optionally filtered by category."""
     feature_importance = {
         c: np.abs(shap_df[c]).mean() for c in feature_cols if c in shap_df.columns
     }
 
-    # Фильтруем базу по категории
+    # Filter database by category
     candidates = df.copy()
     if food_type and food_type != "none":
         candidates = candidates[candidates["food_type"] == food_type]
     elif drink_type and drink_type != "none":
         candidates = candidates[candidates["drink_type"] == drink_type]
 
-    # Если в категории слишком мало креативов — расширяем до всей базы
+    # If too few creatives in category — expand to whole database
     if len(candidates) < 10:
         candidates = df.copy()
 
@@ -428,27 +391,24 @@ def find_similar_creatives(active_tags, food_type=None, drink_type=None, top_n=2
 
 
 def get_segment_context(tags):
-    """Возвращает текст про категорию креатива и средний CTR."""
+    """Returns insights about creative's category and base CTR."""
     base_ctr = df["ctr"].mean()
     insights = []
 
-    # food_type
     food = tags.get("food_type", "none")
     if food != "none":
         segment_df = df[df["food_type"] == food]
         if len(segment_df) >= 5:
             seg_ctr = segment_df["ctr"].mean()
             diff = seg_ctr - base_ctr
-            sign = "+" if diff > 0 else ""
             insights.append({
                 "label": food.replace("_", " "),
-                "category": "тип еды",
+                "category": "food type",
                 "ctr": seg_ctr,
                 "diff": diff,
                 "count": len(segment_df),
             })
 
-    # drink_type
     drink = tags.get("drink_type", "none")
     if drink != "none":
         segment_df = df[df["drink_type"] == drink]
@@ -457,7 +417,7 @@ def get_segment_context(tags):
             diff = seg_ctr - base_ctr
             insights.append({
                 "label": drink.replace("_", " "),
-                "category": "тип напитка",
+                "category": "drink type",
                 "ctr": seg_ctr,
                 "diff": diff,
                 "count": len(segment_df),
@@ -467,9 +427,8 @@ def get_segment_context(tags):
 
 
 def calculate_active_combinations(active_tags, food_type=None, drink_type=None, top_n_each=3):
-    """Находит самые сильные комбинации с учётом сегмента."""
+    """Find strongest combinations considering the segment."""
     
-    # Определяем какой сегмент использовать
     if food_type and food_type != "none":
         segment_filter = (interactions_df["segment_type"] == "food") & \
                         (interactions_df["segment"] == food_type)
@@ -481,7 +440,7 @@ def calculate_active_combinations(active_tags, food_type=None, drink_type=None, 
     
     segment_df = interactions_df[segment_filter]
     
-    # Если в сегменте мало пар — фоллбэк на all
+    # If few pairs in segment — fallback to all
     if len(segment_df) < 5:
         segment_df = interactions_df[interactions_df["segment_type"] == "all"]
     
@@ -527,7 +486,7 @@ def divider():
 
 
 # ============================================================
-# Рендер блоков
+# Block renders
 # ============================================================
 
 def render_block_creative_card(entry, selected_brand):
@@ -546,7 +505,7 @@ def render_block_creative_card(entry, selected_brand):
     ctr_max = similar_ctrs.max()
     ctr_median = similar_ctrs.median()
 
-    st.markdown('<div class="section-title">Креатив</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Creative</div>', unsafe_allow_html=True)
 
     col_img, col_info = st.columns([0.9, 1.4], gap="large")
 
@@ -562,31 +521,31 @@ def render_block_creative_card(entry, selected_brand):
         st.markdown(f"""
         <div style="display:flex;gap:10px;margin-bottom:24px;">
             <div class="metric-mini" style="flex:1;">
-                <div class="metric-mini-label">CTR похожих (мин)</div>
+                <div class="metric-mini-label">Similar CTR (min)</div>
                 <div class="metric-mini-value">{ctr_min:.2f}%</div>
             </div>
             <div class="metric-mini" style="flex:1;">
-                <div class="metric-mini-label">медиана</div>
+                <div class="metric-mini-label">median</div>
                 <div class="metric-mini-value">{ctr_median:.2f}%</div>
             </div>
             <div class="metric-mini" style="flex:1;">
-                <div class="metric-mini-label">CTR похожих (макс)</div>
+                <div class="metric-mini-label">Similar CTR (max)</div>
                 <div class="metric-mini-value">{ctr_max:.2f}%</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Динамическая подпись с брендом и категорией
+        # Dynamic caption with brand and category
         food = tags.get("food_type", "none")
         drink = tags.get("drink_type", "none")
         category_label = food.replace("_", " ") if food != "none" else (drink.replace("_", " ") if drink != "none" else "")
-        caption_text = f"Диапазон CTR по похожим креативам бренда <b>{selected_brand}</b>"
+        caption_text = f"CTR range across similar creatives of <b>{selected_brand}</b>"
         if category_label:
-            caption_text += f" в категории <b>{category_label}</b>"
+            caption_text += f" in the <b>{category_label}</b> category"
 
         st.markdown(f'<div style="font-size:12px;color:#888;margin-top:-12px;margin-bottom:18px;">{caption_text}</div>', unsafe_allow_html=True)
 
-        # Категории — зелёная строка
+        # Categories — green row
         cat_chips = []
         for cat in CATEGORICAL_TAGS:
             value = tags.get(cat, "none")
@@ -594,11 +553,11 @@ def render_block_creative_card(entry, selected_brand):
                 cat_chips.append(f'<span class="tag-chip tag-categorical-active">{cat.replace("_"," ")}: {value}</span>')
 
         if cat_chips:
-            st.markdown("<div style='font-size:14px;font-weight:500;margin-bottom:8px;'>Категории</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:14px;font-weight:500;margin-bottom:8px;'>Categories</div>", unsafe_allow_html=True)
             st.markdown("".join(cat_chips), unsafe_allow_html=True)
             st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
 
-        # Теги — синяя строка
+        # Tags — blue row
         tag_chips = []
         for binary in BINARY_FEATURES:
             if tags.get(binary, False):
@@ -607,35 +566,34 @@ def render_block_creative_card(entry, selected_brand):
             if not tags.get(binary, False):
                 tag_chips.append(f'<span class="tag-chip tag-absent">{display_name(binary)}</span>')
 
-        st.markdown("<div style='font-size:14px;font-weight:500;margin-bottom:8px;'>Теги</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:14px;font-weight:500;margin-bottom:8px;'>Tags</div>", unsafe_allow_html=True)
         st.markdown("".join(tag_chips), unsafe_allow_html=True)
     return active_tags, similar
 
 
 def render_block_tag_effects(active_tags):
-    """Связь тегов с CTR — без чисел и графика, только направление и сила."""
+    """Tag correlation with CTR — no numbers or chart, only direction and strength."""
     effects = calculate_tag_effects(active_tags)
     
-    # Пороги: подбери под свои данные, если надо
-    TAG_STRONG = 0.30  # двойная стрелка
-    TAG_WEAK = 0.00001    # одинарая стрелка
+    TAG_STRONG = 0.30
+    TAG_WEAK = 0.00001
     
     categorized = []
     for tag, val in effects:
         direction, strength = categorize_strength(val, TAG_STRONG, TAG_WEAK)
         categorized.append((tag, direction, strength))
     
-    st.markdown('<div class="section-title">Связь тегов с CTR</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Tag correlation with CTR</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-subtitle">Какие теги чаще встречаются в креативах с высоким или низким CTR. '
-        '<b>↑↑ / ↓↓</b> — сильная связь, <b>↑ / ↓</b> — умеренная. '
-        'Это паттерн в данных, не гарантированный эффект.</div>',
+        '<div class="section-subtitle">Which tags appear more often in creatives with high or low CTR. '
+        '<b>↑↑ / ↓↓</b> — strong correlation, <b>↑ / ↓</b> — moderate. '
+        'This is a pattern in the data, not a guaranteed effect.</div>',
         unsafe_allow_html=True,
     )
     
     if not categorized:
         st.markdown(
-            "<div style='color:#888;font-size:14px;'>Среди найденных тегов нет значимой связи с CTR</div>",
+            "<div style='color:#888;font-size:14px;'>No significant correlation with CTR for the detected tags</div>",
             unsafe_allow_html=True
         )
         return
@@ -653,10 +611,9 @@ def render_block_tag_effects(active_tags):
 
 
 def render_block_combinations(active_tags):
-    """Связь пар тегов с CTR — без чисел."""
+    """Tag pair correlation with CTR — no numbers."""
     positive, negative = calculate_active_combinations(active_tags)
     
-    # Пороги для комбинаций — обычно меньше чем для отдельных тегов
     COMBO_STRONG = 0.02
     COMBO_WEAK = 0.001
     
@@ -665,16 +622,16 @@ def render_block_combinations(active_tags):
         direction, strength = categorize_strength(combo["interaction"], COMBO_STRONG, COMBO_WEAK)
         all_combos.append((combo, direction, strength))
     
-    st.markdown('<div class="section-title">Связь пар тегов с CTR</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Tag pair correlation with CTR</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-subtitle">Какие сочетания тегов в данных бренда связаны с CTR сильнее или слабее, '
-        'чем эти теги по отдельности</div>',
+        '<div class="section-subtitle">Which tag combinations within this brand correlate with CTR more or less '
+        'than the tags taken separately</div>',
         unsafe_allow_html=True,
     )
     
     if not all_combos:
         st.markdown(
-            "<div style='color:#888;font-size:14px;'>Среди активных пар нет значимой связи</div>",
+            "<div style='color:#888;font-size:14px;'>No significant pair correlations found among the active tags</div>",
             unsafe_allow_html=True
         )
         return
@@ -688,12 +645,6 @@ def render_block_combinations(active_tags):
         </div>
         """
     st.markdown(rows_html, unsafe_allow_html=True)
-    st.markdown(
-    '<div class="section-subtitle">Какие теги чаще встречаются в креативах с высоким или низким CTR. '
-    '<b>↑↑ / ↓↓</b> — сильная связь, <b>↑ / ↓</b> — умеренная, <b>—</b> — нейтральная. '
-    'Это паттерн в данных, не гарантированный эффект.</div>',
-    unsafe_allow_html=True,
-)
 
 
 def render_block_recommendations(tags):
@@ -701,16 +652,16 @@ def render_block_recommendations(tags):
     active_tags = get_active_tags(tags)
     recs_add, recs_remove = get_recommendations_full(active_tags, X_new)
 
-    st.markdown('<div class="section-title">Рекомендации</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Recommendations</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-subtitle">Что можно изменить, чтобы повысить ожидаемый CTR. '
-        'Точный эффект для этого креатива можно посмотреть в А/B сценариях.</div>',
+        '<div class="section-subtitle">What you could change to potentially improve CTR. '
+        'You can check the exact effect for this creative in A/B scenarios below.</div>',
         unsafe_allow_html=True,
     )
 
     if not recs_add and not recs_remove:
         st.markdown(
-            "<div style='color:#1D9E75;font-size:14px;'>Набор тегов выглядит сильным! 💪</div>",
+            "<div style='color:#1D9E75;font-size:14px;'>The tag set looks strong! 💪</div>",
             unsafe_allow_html=True,
         )
     else:
@@ -718,15 +669,15 @@ def render_block_recommendations(tags):
         for feat, _ in recs_add:
             rows_html += f"""
             <div class="rec-row">
-                <span class="rec-add">➕ Добавить</span>
-                &nbsp;&nbsp;<b>{display_name(feat)}</b> — креативы с этим элементом в среднем перформят лучше
+                <span class="rec-add">➕ Add</span>
+                &nbsp;&nbsp;<b>{display_name(feat)}</b> — creatives with this element tend to perform better on average
             </div>
             """
         for feat, _ in recs_remove:
             rows_html += f"""
             <div class="rec-row">
-                <span class="rec-remove">➖ Убрать</span>
-                &nbsp;&nbsp;<b>{display_name(feat)}</b> — креативы без него в среднем перформят лучше
+                <span class="rec-remove">➖ Remove</span>
+                &nbsp;&nbsp;<b>{display_name(feat)}</b> — creatives without it tend to perform better on average
             </div>
             """
         st.markdown(rows_html, unsafe_allow_html=True)
@@ -734,9 +685,9 @@ def render_block_recommendations(tags):
     return recs_add, recs_remove
 
 def build_scenario_prompt(changes):
-    """Промпт для генерации по А/B сценарию — берёт явный список изменений."""
-    to_add = [display_name(f) for f, _, v in changes if v]      # включить
-    to_remove = [display_name(f) for f, _, v in changes if not v]  # выключить
+    """Prompt for generation by A/B scenario — takes explicit change list."""
+    to_add = [display_name(f) for f, _, v in changes if v]
+    to_remove = [display_name(f) for f, _, v in changes if not v]
     
     instructions = []
     if to_remove:
@@ -753,36 +704,35 @@ def build_scenario_prompt(changes):
     return prompt
 
 def render_block_ab_scenarios(tags, entry_hash, source_image_bytes):
-    """Объединённый блок: А/B + генерация AI-референса по выбранному сценарию."""
+    """Combined block: A/B scenarios + AI reference generation."""
     
-    st.markdown('<div class="section-title">А/B сценарии + AI-референс</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">A/B scenarios + AI reference</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-subtitle">Поменяй теги — посмотри как изменится связь с CTR, '
-        'и сгенерируй визуальный референс по своему сценарию</div>',
+        '<div class="section-subtitle">Toggle tags — see how the correlation with CTR changes, '
+        'and generate a visual reference based on your scenario</div>',
         unsafe_allow_html=True,
     )
 
-    # Состояние тогглов
+    # Toggle state
     state_key = f"ab_state_{entry_hash}"
     if state_key not in st.session_state:
         st.session_state[state_key] = {
             feat: bool(tags.get(feat, False)) for feat in BINARY_FEATURES
         }
 
-    # Кнопка сброса
+    # Reset button
     col_reset, _ = st.columns([1, 4])
     with col_reset:
-        if st.button("↻ Сбросить", key=f"reset_{entry_hash}"):
+        if st.button("↻ Reset", key=f"reset_{entry_hash}"):
             st.session_state[state_key] = {
                 feat: bool(tags.get(feat, False)) for feat in BINARY_FEATURES
             }
-            # Очищаем все сгенерированные референсы для этого креатива
             for key in list(st.session_state.keys()):
                 if key.startswith(f"ab_generated_{entry_hash}"):
                     del st.session_state[key]
             st.rerun()
 
-    # Тогглы
+    # Toggles
     cols = st.columns(3)
     for i, feat in enumerate(BINARY_FEATURES):
         with cols[i % 3]:
@@ -794,7 +744,7 @@ def render_block_ab_scenarios(tags, entry_hash, source_image_bytes):
             )
             st.session_state[state_key][feat] = new_value
 
-    # Считаем дельту
+    # Compute delta
     original_X = tags_to_features(tags, feature_cols)
     original_ctr = float(model.predict(original_X)[0])
 
@@ -806,23 +756,23 @@ def render_block_ab_scenarios(tags, entry_hash, source_image_bytes):
     modified_ctr = float(model.predict(modified_X)[0])
     diff = modified_ctr - original_ctr
 
-    # Список изменений
+    # Changes list
     changes = []
     for feat in BINARY_FEATURES:
         original_val = bool(tags.get(feat, False))
         new_val = st.session_state[state_key][feat]
         if original_val != new_val:
-            action = "включить" if new_val else "выключить"
+            action = "turn on" if new_val else "turn off"
             changes.append((feat, action, new_val))
 
-    # Категоризация направления
+    # Direction categorization
     AB_STRONG = 0.30
     AB_WEAK = 0.10
     direction, strength = categorize_strength(diff, AB_STRONG, AB_WEAK)
 
-    # Текст и стрелка
+    # Verdict text and arrow
     if not changes:
-        verdict_html = '<span style="color:#888;font-size:15px;">Ничего не изменено</span>'
+        verdict_html = '<span style="color:#888;font-size:15px;">Nothing changed</span>'
         arrow_html = '<span style="color:#b5b3a8;font-size:36px;">—</span>'
     else:
         changes_text = ", ".join(
@@ -830,13 +780,13 @@ def render_block_ab_scenarios(tags, entry_hash, source_image_bytes):
         )
         
         if direction == "neutral":
-            label = "Связь почти не меняется"
+            label = "Correlation barely changes"
             label_color = "#888"
         elif direction == "up":
-            label = "Связь с CTR усиливается" if strength == "strong" else "Связь с CTR немного усиливается"
+            label = "Correlation with CTR strengthens" if strength == "strong" else "Correlation with CTR slightly strengthens"
             label_color = "#1D9E75"
         else:
-            label = "Связь с CTR ослабевает" if strength == "strong" else "Связь с CTR немного ослабевает"
+            label = "Correlation with CTR weakens" if strength == "strong" else "Correlation with CTR slightly weakens"
             label_color = "#E24B4A"
         
         if direction == "neutral":
@@ -853,7 +803,7 @@ def render_block_ab_scenarios(tags, entry_hash, source_image_bytes):
             f'<div style="font-size:13px;color:#666;">{changes_text}</div>'
         )
 
-    # Плашка с результатом
+    # Result plate
     st.markdown(f"""
     <div style="margin-top:24px;padding:20px;background:#faf9f5;border-radius:12px;">
         <div style="display:flex;align-items:center;gap:24px;">
@@ -863,20 +813,17 @@ def render_block_ab_scenarios(tags, entry_hash, source_image_bytes):
     </div>
     """, unsafe_allow_html=True)
 
-    # === Генерация референса ===
+    # === Reference generation ===
     
-    # Если ничего не менялось — не показываем кнопку, нечего генерить
     if not changes:
         st.markdown(
             "<div style='font-size:13px;color:#888;margin-top:16px;'>"
-            "Поменяй какие-нибудь теги выше — и появится возможность сгенерировать визуальный референс."
+            "Toggle some tags above — and you'll be able to generate a visual reference."
             "</div>",
             unsafe_allow_html=True,
         )
         return
 
-    # Уникальный ключ кэша по этому набору изменений
-    # — чтобы повторная генерация того же сценария отдавала из кэша
     scenario_signature = "|".join(
         f"{feat}={int(val)}" for feat, _, val in sorted(changes, key=lambda x: x[0])
     )
@@ -887,16 +834,16 @@ def render_block_ab_scenarios(tags, entry_hash, source_image_bytes):
 
     if cache_key not in st.session_state:
         if st.button(
-            "✨ Сгенерировать визуальный референс по этому сценарию",
+            "✨ Generate a visual reference for this scenario",
             use_container_width=True,
             key=f"gen_btn_{entry_hash}_{scenario_hash}",
         ):
-            with st.spinner("Генерируем (~15-30 секунд)..."):
+            with st.spinner("Generating (~15-30 seconds)..."):
                 prompt = build_scenario_prompt(changes)
                 image_bytes, error = generate_image_via_openai(prompt, source_image_bytes)
                 
                 if error:
-                    st.error(f"Ошибка генерации: {error}")
+                    st.error(f"Generation error: {error}")
                 else:
                     st.session_state[cache_key] = {
                         "image": image_bytes,
@@ -909,30 +856,30 @@ def render_block_ab_scenarios(tags, entry_hash, source_image_bytes):
         
         col_orig, col_new = st.columns(2, gap="large")
         with col_orig:
-            st.markdown("<div style='font-size:13px;color:#888;margin-bottom:8px;'>Исходный</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:13px;color:#888;margin-bottom:8px;'>Original</div>", unsafe_allow_html=True)
             st.image(source_image_bytes, use_container_width=True)
         with col_new:
-            st.markdown("<div style='font-size:13px;color:#888;margin-bottom:8px;'>AI-референс по сценарию</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:13px;color:#888;margin-bottom:8px;'>AI reference for the scenario</div>", unsafe_allow_html=True)
             st.image(result["image"], use_container_width=True)
         
         st.markdown(
             "<div style='font-size:12px;color:#888;margin-top:12px;line-height:1.6;'>"
-            "Этот референс — отправная точка для дизайнера. "
-            "Логотип, типографика и точная подача — работа дизайнера."
+            "This reference is a starting point for the designer. "
+            "Logo, typography, and final execution are up to the designer."
             "</div>",
             unsafe_allow_html=True,
         )
         
-        with st.expander("Полный промпт"):
+        with st.expander("Full prompt"):
             st.code(result["prompt"], language=None)
         
-        if st.button("🔄 Сгенерировать заново", key=f"regen_{entry_hash}_{scenario_hash}"):
+        if st.button("🔄 Regenerate", key=f"regen_{entry_hash}_{scenario_hash}"):
             del st.session_state[cache_key]
             st.rerun()
 
 def render_block_similar(similar):
-    st.markdown('<div class="section-title">Похожие креативы из базы</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-subtitle">Креативы с похожим набором тегов, отсортированы по фактическому CTR</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Similar creatives from the database</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-subtitle">Creatives with a similar tag set, sorted by actual CTR</div>', unsafe_allow_html=True)
 
     top_similar = similar[:10]
     creatives = []
@@ -972,21 +919,21 @@ def render_block_similar(similar):
                 <div style="font-size:20px;font-weight:600;color:{ctr_color};margin-top:6px;">{c['ctr']:.2f}%</div>
                 <div style="font-size:11px;color:#888;min-height:32px;">{tag_str if tag_str else '—'}</div>
                 <a href="/Library?creative={c['filename']}" target="_blank" class="similar-open-btn">
-                    Открыть →
+                    Open →
                 </a>
                 """, unsafe_allow_html=True)
 
 
 def render_block_segment_context(tags):
-    """Блок инсайт о сегменте — насколько эта категория удачная для бренда."""
+    """Insight block about the segment — how strong this category is for the brand."""
     insights, base_ctr = get_segment_context(tags)
 
     if not insights:
         return
 
-    st.markdown('<div class="section-title">Категория креатива</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Creative category</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-subtitle">Насколько креативы такой же категории сильны у этого бренда</div>',
+        '<div class="section-subtitle">How strong creatives of the same category are for this brand</div>',
         unsafe_allow_html=True,
     )
 
@@ -997,15 +944,14 @@ def render_block_segment_context(tags):
         color = "#1D9E75" if is_better else "#E24B4A"
         sign = "+" if is_better else ""
 
-        # Понятная интерпретация
         if abs(diff) < 0.1:
-            verdict = "Категория работает примерно как и остальные у этого бренда"
+            verdict = "Category performs roughly the same as others for this brand"
             verdict_color = "#888"
         elif is_better:
-            verdict = f"✓ Категория сильнее остальных у этого бренда на {sign}{diff:.2f}%"
+            verdict = f"✓ Category outperforms others for this brand by {sign}{diff:.2f}%"
             verdict_color = "#1D9E75"
         else:
-            verdict = f"✗ Категория слабее остальных у этого бренда на {diff:.2f}%"
+            verdict = f"✗ Category underperforms others for this brand by {diff:.2f}%"
             verdict_color = "#E24B4A"
 
         rows_html += f"""
@@ -1015,139 +961,140 @@ def render_block_segment_context(tags):
             </div>
             <div style="display:flex;gap:24px;margin-bottom:12px;">
                 <div>
-                    <div style="font-size:11px;color:#888;margin-bottom:2px;">CTR этой категории</div>
+                    <div style="font-size:11px;color:#888;margin-bottom:2px;">Category CTR</div>
                     <div style="font-size:20px;font-weight:600;color:#1a1a1a;">{ins['ctr']:.2f}%</div>
                 </div>
                 <div>
-                    <div style="font-size:11px;color:#888;margin-bottom:2px;">CTR всех креативов бренда</div>
+                    <div style="font-size:11px;color:#888;margin-bottom:2px;">All brand creatives CTR</div>
                     <div style="font-size:20px;font-weight:600;color:#1a1a1a;">{base_ctr:.2f}%</div>
                 </div>
                 <div>
-                    <div style="font-size:11px;color:#888;margin-bottom:2px;">Разница</div>
+                    <div style="font-size:11px;color:#888;margin-bottom:2px;">Difference</div>
                     <div style="font-size:20px;font-weight:600;color:{color};">{sign}{diff:.2f}%</div>
                 </div>
             </div>
             <div style="font-size:14px;color:{verdict_color};font-weight:500;">{verdict}</div>
-            <div style="font-size:12px;color:#888;margin-top:6px;">На основе {ins['count']} креативов</div>
+            <div style="font-size:12px;color:#888;margin-top:6px;">Based on {ins['count']} creatives</div>
         </div>
         """
     st.markdown(rows_html, unsafe_allow_html=True)
 
-# def render_block_generated_alternative(tags, recs_add, recs_remove, entry_hash, source_image_bytes):
-#     """Блок: AI-референс на основе исходного креатива."""
-#     st.markdown('<div class="section-title">AI-референс альтернативы</div>', unsafe_allow_html=True)
-#     st.markdown(
-#         '<div class="section-subtitle">Модификация исходного креатива с учётом паттернов библиотеки. '
-#         '<b>Референс для дизайнера</b>, не финальный креатив — возможны визуальные артефакты.</div>',
-#         unsafe_allow_html=True,
-#     )
-    
-#     cache_key = f"generated_{entry_hash}"
-#     prompt = build_generation_prompt(tags, recs_add, recs_remove)
-    
-#     # Показываем промпт сразу
-#     add_list = [display_name(f) for f, _ in recs_add]
-#     remove_list = [display_name(f) for f, _ in recs_remove]
-    
-#     changes_html = ""
-#     if add_list:
-#         changes_html += (
-#             "<div style='margin-bottom:8px;'>"
-#             "<span style='color:#1D9E75;font-weight:600;'>➕ Добавить / усилить:</span> "
-#             f"{', '.join(f'<b>{t}</b>' for t in add_list)}"
-#             "</div>"
-#         )
-#     if remove_list:
-#         changes_html += (
-#             "<div style='margin-bottom:8px;'>"
-#             "<span style='color:#E24B4A;font-weight:600;'>➖ Убрать / ослабить:</span> "
-#             f"{', '.join(f'<b>{t}</b>' for t in remove_list)}"
-#             "</div>"
-#         )
-#     if not changes_html:
-#         changes_html = "<div style='color:#888;'>Рекомендуемых изменений нет — креатив и так в хорошем наборе тегов</div>"
-    
-#     st.markdown(
-#         f"""
-#         <div style="background:#faf9f5;border-radius:12px;padding:18px 22px;margin-bottom:16px;">
-#             <div style="font-size:12px;color:#888;margin-bottom:10px;">
-#                 Что попросим у AI поменять в исходном креативе
-#             </div>
-#             {changes_html}
-#         </div>
-#         """,
-#         unsafe_allow_html=True,
-#     )
-    
-#     # Результат / кнопка
-#     if cache_key not in st.session_state:
-#         if st.button(
-#             "✨ Сгенерировать пример более удачного креатива",
-#             use_container_width=True,
-#             key=f"gen_btn_{entry_hash}",
-#         ):
-#             with st.spinner("Генерируем референс (~15-30 секунд)..."):
-#                 image_bytes, error = generate_image_via_openai(prompt, source_image_bytes)
-                
-#                 if error:
-#                     st.error(f"Ошибка генерации: {error}")
-#                 else:
-#                     st.session_state[cache_key] = {
-#                         "image": image_bytes,
-#                         "prompt": prompt,
-#                     }
-#                     st.rerun()
-#     else:
-#         result = st.session_state[cache_key]
-        
-#         col_orig, col_new = st.columns(2, gap="large")
-        
-#         with col_orig:
-#             st.markdown("<div style='font-size:13px;color:#888;margin-bottom:8px;'>Исходный</div>", unsafe_allow_html=True)
-#             st.image(source_image_bytes, use_container_width=True)
-        
-#         with col_new:
-#             st.markdown("<div style='font-size:13px;color:#888;margin-bottom:8px;'>AI-референс</div>", unsafe_allow_html=True)
-#             st.image(result["image"], use_container_width=True)
-        
-#         st.markdown(
-#             "<div style='font-size:12px;color:#888;margin-top:12px;line-height:1.6;'>"
-#             "Этот референс — отправная точка для дизайнера, не готовый креатив. "
-#             "Логотип, типографика и точная подача — работа дизайнера."
-#             "</div>",
-#             unsafe_allow_html=True,
-#         )
-        
-#         with st.expander("Полный промпт"):
-#             st.code(result["prompt"], language=None)
-        
-#         if st.button("🔄 Другой вариант", key=f"regen_{entry_hash}"):
-#             del st.session_state[cache_key]
-#             st.rerun()
-
 
 def render_analysis(entry, selected_brand):
     active_tags, similar = render_block_creative_card(entry, selected_brand)
+    
     divider()
     render_block_tag_effects(active_tags)
+    spacer()
+    with st.expander("ℹ️ How this is calculated"):
+        st.markdown("""
+        For each tag detected in the uploaded creative, we look at all creatives of the
+        selected brand where this tag is active and calculate the average SHAP value —
+        how much this tag tends to push CTR up or down compared to the brand's baseline.
+        
+        Arrow indicators:
+        
+        - ↑↑ / ↓↓ — strong correlation (≥ 0.30 CTR percentage points)
+        - ↑ / ↓ — moderate correlation
+        - — — neutral
+        
+        This shows correlation in the brand's historical data, not a guaranteed effect
+        for this specific creative.
+        """)
+    
     divider()
     render_block_segment_context(entry["tags"])
+    spacer()
+    with st.expander("ℹ️ How this is calculated"):
+        st.markdown("""
+        Compares the average CTR of brand creatives in the same food/drink category as
+        the uploaded creative with the average CTR across all brand creatives.
+        
+        Positive difference (green) means creatives of this category tend to perform better
+        than the brand average. Negative (red) means they tend to underperform.
+        
+        Only categories with at least 5 creatives in the brand portfolio are shown.
+        """)
+    
     divider()
     render_block_combinations(active_tags)
+    spacer()
+    with st.expander("ℹ️ How this is calculated"):
+        st.markdown("""
+        For each pair of active tags in the uploaded creative, we measure how much
+        **adding the second tag** changes CTR beyond what each tag would contribute alone.
+        
+        We show the top 3 positive pairs (combinations that work well together) and the
+        top 3 negative pairs (combinations that work against each other) within the brand's data.
+        
+        If no significant pairs are found, the tag combination of this creative doesn't have
+        strong synergies or conflicts in the data.
+        """)
+    
     divider()
     recs_add, recs_remove = render_block_recommendations(entry["tags"])
+    spacer()
+    with st.expander("ℹ️ How this is calculated"):
+        st.markdown("""
+        For each binary tag we calculate the average SHAP across creatives where this tag is
+        active in the brand's data. Then:
+        
+        - **Add** — tags that are currently OFF in the uploaded creative but have a positive
+          average SHAP (> 0.05) — creatives with this tag tend to perform better
+        - **Remove** — tags that are currently ON in the uploaded creative but have a negative
+          average SHAP (< -0.05) — creatives without this tag tend to perform better
+        
+        At most 5 add and 5 remove recommendations are shown, ranked by magnitude.
+        
+        These are data-driven suggestions, not guarantees. Test specific scenarios using A/B
+        scenarios below to see the predicted impact for your exact creative.
+        """)
+    
     divider()
-    render_block_ab_scenarios(entry["tags"], entry["hash"], entry["image_bytes"])  
+    render_block_ab_scenarios(entry["tags"], entry["hash"], entry["image_bytes"])
+    spacer()
+    with st.expander("ℹ️ How this is calculated"):
+        st.markdown("""
+        **A/B scenarios.** Toggling tags re-runs the LightGBM model with the modified tag
+        combination. The arrow shows the direction and strength of the predicted CTR shift
+        compared to the original tag set:
+        
+        - ↑↑ / ↓↓ — strong shift (≥ 0.30 CTR percentage points)
+        - ↑ / ↓ — moderate shift (≥ 0.10)
+        - — — neutral
+        
+        **AI reference generation.** Once you've changed at least one tag, you can generate
+        a visual reference. The system builds a prompt from your changes and uses OpenAI's
+        gpt-image-1.5 (image-to-image) to modify the original creative — keeping the brand
+        identity but adjusting the visual elements according to your scenario.
+        
+        The result is a **reference for the designer**, not a final creative — expect visual
+        artifacts. Final logo, typography, and execution are up to the designer.
+        """)
+    
     divider()
     render_block_similar(similar)
+    spacer()
+    with st.expander("ℹ️ How this is calculated"):
+        st.markdown("""
+        We compute the similarity of each brand creative to the uploaded one based on the
+        overlap of their tag sets, weighted by tag importance (average absolute SHAP).
+        
+        If the uploaded creative has a food/drink category, we first look at creatives
+        within the same category. If the category has fewer than 10 creatives, we expand
+        to the whole brand portfolio.
+        
+        The top 10 most similar creatives are shown, sorted by their actual CTR (highest first).
+        Click "Open →" on any card to see its full breakdown in the Library.
+        """)
 
 
 # ============================================================
 # SIDEBAR
 # ============================================================
 with st.sidebar:
-    st.markdown("### История")
-    st.caption(f"Проанализировано: {len(st.session_state.history)}")
+    st.markdown("### History")
+    st.caption(f"Analyzed: {len(st.session_state.history)}")
 
     if st.session_state.history:
         for i, entry in enumerate(reversed(st.session_state.history)):
@@ -1159,57 +1106,75 @@ with st.sidebar:
                 st.image(image)
             with col_info:
                 st.caption(entry["name"][:18])
-                if st.button("Открыть", key=f"open_{real_idx}", width='stretch'):
+                if st.button("Open", key=f"open_{real_idx}", width='stretch'):
                     st.session_state.selected_history = real_idx
                     st.rerun()
         st.divider()
-        if st.button("🗑️ Очистить", width='stretch'):
+        if st.button("🗑️ Clear", width='stretch'):
             st.session_state.history = []
             st.session_state.selected_history = None
             st.rerun()
     else:
-        st.caption("Загрузи креатив чтобы начать")
+        st.caption("Upload a creative to start")
 
 
 # ============================================================
 # MAIN
 # ============================================================
-st.title("🚀 Анализ креатива")
-st.caption("Загрузи рекламный баннер — узнай как визуальные элементы влияют на CTR")
 
-# Дропдаун бренда
+st.title("🚀 Creative analysis")
+st.caption("Upload an ad creative — see how visual elements correlate with CTR")
+
+# Info banner about MVP scope
+st.markdown("""
+<div style="background:#fff8e6;border-left:4px solid #e8a24a;border-radius:8px;
+            padding:14px 18px;margin:16px 0 24px 0;font-size:13px;color:#5a4a1f;line-height:1.6;">
+    <b>ℹ️ About this MVP:</b> This tool is focused on the <b>Food & Drinks</b> advertising category.
+    For best results, upload creatives featuring food, drinks, or related visuals — non-F&B uploads
+    will produce noisy analytics since the model is trained on F&B data only.
+    All CTR data is <b>synthetic</b>, generated based on the structure of real creatives from
+    the Meta Ad Library. Brand names (BurgerBee, CrunchBox, etc.) are test placeholders —
+    in a production version this dropdown would be optional and connected to your own data.
+</div>
+""", unsafe_allow_html=True)
+
+# Brand dropdown
 all_brands = sorted(df["brand"].unique().tolist())
 selected_brand = st.selectbox(
-    "Бренд для анализа",
+    "Brand for analysis",
     options=all_brands,
-    help="Анализ будет построен на креативах выбранного бренда"
+    help=(
+        "Analysis will be built on creatives of the selected brand. "
+        "These are test brands — in a real product this selector would be optional, "
+        "and analysis could run across the entire brand portfolio or any custom segment."
+    )
 )
 
-# Фильтруем данные
+# Filter data
 df_filtered = df[df["brand"] == selected_brand].copy()
 filenames = df_filtered["filename"].tolist()
 shap_df_filtered = shap_df[shap_df["filename"].isin(filenames)].copy()
 
-# Варнинг для маленьких сегментов
+# Warning for small segments
 if len(df_filtered) < 30:
-    st.warning(f"⚠️ У бренда {selected_brand} только {len(df_filtered)} креативов. Анализ может быть неточным.")
+    st.warning(f"⚠️ Brand {selected_brand} has only {len(df_filtered)} creatives. Analysis may be unreliable.")
 
-# Подменяем глобальные переменные для функций анализа
+# Override globals for analysis functions
 df = df_filtered
 shap_df = shap_df_filtered
 
-st.caption(f"Анализ построен на {len(df_filtered)} креативах бренда **{selected_brand}**")
+st.caption(f"Analysis based on {len(df_filtered)} creatives of **{selected_brand}**")
 
-# Логика страницы
+# Page logic
 if st.session_state.selected_history is not None:
     entry = st.session_state.history[st.session_state.selected_history]
-    if st.button("← Назад к загрузке"):
+    if st.button("← Back to upload"):
         st.session_state.selected_history = None
         st.rerun()
     render_analysis(entry, selected_brand)
 else:
     uploaded_file = st.file_uploader(
-        "Перетащи картинку или нажми чтобы выбрать",
+        "Drop an image or click to choose",
         type=["png", "jpg", "jpeg", "webp"],
         label_visibility="collapsed",
     )
@@ -1228,7 +1193,7 @@ else:
         if existing:
             entry = existing
         else:
-            with st.spinner("Анализируем картинку..."):
+            with st.spinner("Analyzing the image..."):
                 tags = tag_image_cached(image_hash, image_bytes, mime)
             entry = {
                 "hash": image_hash,
@@ -1239,4 +1204,42 @@ else:
             st.session_state.history.append(entry)
             st.rerun()
 
-        render_analysis(entry, selected_brand)
+        # Check if uploaded creative looks like F&B
+        is_food_drink = (
+            entry["tags"].get("food_type", "none") != "none"
+            or entry["tags"].get("drink_type", "none") != "none"
+            or entry["tags"].get("main_object", "none") in ("main_dish", "snack", "dessert", "drink", "fruit", "healthy")
+        )
+        
+        if not is_food_drink:
+            # Show uploaded image so user sees what they uploaded
+            col_img, col_msg = st.columns([1, 1.5], gap="large")
+            with col_img:
+                image = Image.open(io.BytesIO(entry["image_bytes"]))
+                max_height = 360
+                if image.height > max_height:
+                    ratio = max_height / image.height
+                    image = image.resize((int(image.width * ratio), max_height), Image.LANCZOS)
+                st.image(image)
+            
+            with col_msg:
+                st.markdown("""
+                <div style="background:#fdecec;border-left:4px solid #E24B4A;border-radius:8px;
+                            padding:20px 24px;margin-top:8px;font-size:14px;color:#7a2424;line-height:1.7;">
+                    <div style="font-size:18px;font-weight:600;margin-bottom:10px;">
+                        ⚠️ This doesn't look like a Food & Drinks creative
+                    </div>
+                    The AI didn't detect any food or drink elements in this image. 
+                    Analysis won't be shown — the model is trained only on F&B creatives,
+                    so the results wouldn't be meaningful for this category.
+                    <br><br>
+                    <b>Try uploading a creative featuring:</b>
+                    <ul style="margin:8px 0 0 0;padding-left:20px;">
+                        <li>Food (burgers, pizza, snacks, desserts, healthy meals)</li>
+                        <li>Drinks (soda, juice, alcohol)</li>
+                        <li>Restaurant or delivery visuals</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            render_analysis(entry, selected_brand)
