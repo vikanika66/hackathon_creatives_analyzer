@@ -358,6 +358,6 @@ with footer_col2:
 
 st.markdown("""
 <div style="text-align:center;font-size:13px;color:#bbb;margin:60px 0 20px 0;padding-top:24px;border-top:1px solid #eee;">
-    Creative Analyzer · Hackathon MVP · Built in Streamlit · 2026
+    Creative Analyzer · Hackathon MVP · Built in Streamlit · by Viktoriia Iachmeneva · 2026
 </div>
 """, unsafe_allow_html=True)

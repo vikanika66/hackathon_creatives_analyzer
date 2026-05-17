@@ -3,11 +3,14 @@ Library page — gallery of creatives from the database with filters and tag bre
 """
 
 import streamlit as st
+import numpy as np
 import pandas as pd
 import os
 from PIL import Image
 import base64
 from pathlib import Path
+from openai import OpenAI
+import io
 
 from utils import (
     COMMON_CSS,
@@ -39,6 +42,88 @@ model = load_model()
 explainer = get_explainer(model)
 
 IMAGES_DIR = "images"
+
+# ============================================================
+# OpenAI client + image generation (for A/B reference)
+# ============================================================
+
+@st.cache_resource
+def get_openai_client():
+    """Cached OpenAI client."""
+    api_key = st.secrets.get("OPENAI_API_KEY")
+    if not api_key:
+        return None
+    return OpenAI(api_key=api_key)
+
+
+def generate_image_via_openai(prompt, source_image_bytes, quality="medium"):
+    """Image-to-image. Size auto-picked based on source aspect."""
+    client = get_openai_client()
+    if client is None:
+        return None, "OPENAI_API_KEY is not set in .streamlit/secrets.toml"
+    
+    try:
+        from io import BytesIO
+        
+        img = Image.open(BytesIO(source_image_bytes))
+        
+        aspect = img.width / img.height
+        if aspect > 1.2:
+            size = "1536x1024"
+        elif aspect < 0.85:
+            size = "1024x1536"
+        else:
+            size = "1024x1024"
+        
+        if img.mode != "RGBA":
+            img = img.convert("RGBA")
+        
+        png_buffer = BytesIO()
+        img.save(png_buffer, format="PNG")
+        png_buffer.seek(0)
+        png_buffer.name = "source.png"
+        
+        result = client.images.edit(
+            model="gpt-image-1.5",
+            image=png_buffer,
+            prompt=prompt,
+            n=1,
+            size=size,
+            quality=quality,
+        )
+        image_b64 = result.data[0].b64_json
+        return base64.b64decode(image_b64), None
+    except Exception as e:
+        return None, str(e)
+
+
+def build_scenario_prompt(changes):
+    """Prompt for A/B scenario generation."""
+    to_add = [display_name(f) for f, _, v in changes if v]
+    to_remove = [display_name(f) for f, _, v in changes if not v]
+    
+    instructions = []
+    if to_remove:
+        instructions.append(f"reduce or remove these elements: {', '.join(to_remove)}")
+    if to_add:
+        instructions.append(f"add or emphasize these elements: {', '.join(to_add)}")
+    
+    prompt = (
+        "Modify this advertisement creative according to the user's scenario. "
+        f"Required changes: {'. '.join(instructions)}. "
+        "Keep the same product, brand identity, typography style, and overall composition. "
+        "Maintain commercial photography quality."
+    )
+    return prompt
+
+
+def read_image_bytes(filename):
+    """Read image bytes from disk by filename."""
+    image_path = os.path.join(IMAGES_DIR, filename)
+    if not os.path.exists(image_path):
+        return None
+    with open(image_path, "rb") as f:
+        return f.read()
 
 
 def spacer(h=16):
@@ -196,6 +281,46 @@ def calculate_active_combinations(active_tags, food_type=None, drink_type=None, 
     
     return positive.to_dict("records"), negative.to_dict("records")
 
+
+def find_similar_creatives(active_tags, current_filename, food_type=None, drink_type=None, top_n=10):
+    """Find creatives with similar tag set. Excludes the current creative itself."""
+    feature_importance = {
+        c: np.abs(shap_df[c]).mean() for c in feature_cols if c in shap_df.columns
+    }
+
+    # Filter database by category if available
+    candidates = df.copy()
+    if food_type and food_type != "none":
+        candidates = candidates[candidates["food_type"] == food_type]
+    elif drink_type and drink_type != "none":
+        candidates = candidates[candidates["drink_type"] == drink_type]
+
+    # If too few in segment — fallback to whole database
+    if len(candidates) < 10:
+        candidates = df.copy()
+
+    # Exclude the creative we're looking at
+    candidates = candidates[candidates["filename"] != current_filename]
+
+    similarities = []
+    for idx, row in candidates.iterrows():
+        creative_active = []
+        for binary in BINARY_FEATURES:
+            if binary in row.index and row[binary] == True:
+                creative_active.append(binary)
+        for cat in CATEGORICAL_TAGS:
+            value = row.get(cat, "none")
+            if value != "none":
+                col_name = f"{cat}_{value}"
+                if col_name in feature_cols:
+                    creative_active.append(col_name)
+        common = set(active_tags) & set(creative_active)
+        sim = sum(feature_importance.get(t, 0) for t in common)
+        similarities.append((idx, sim))
+
+    similarities.sort(key=lambda x: x[1], reverse=True)
+    return similarities[:top_n]    
+
 # ============================================================
 # Render functions for creative breakdown blocks
 # ============================================================
@@ -208,7 +333,7 @@ def render_block_tag_effects(active_tags):
     """Tag correlation with CTR — arrows instead of numbers."""
     effects = calculate_tag_effects(active_tags)
     
-    TAG_STRONG = 0.15
+    TAG_STRONG = 0.1
     TAG_WEAK = 0.05
     
     categorized = []
@@ -340,6 +465,242 @@ def render_block_combinations(active_tags, tags):
         </div>
         """
     st.markdown(rows_html, unsafe_allow_html=True)
+
+
+def render_block_ab_scenarios_library(tags, filename, source_image_bytes):
+    """A/B scenarios + AI reference for a library creative."""
+    
+    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">A/B scenarios + AI reference</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-size:13px;color:#888;margin-bottom:20px;">'
+        'Toggle tags — see how the correlation with CTR changes, '
+        'and generate a visual reference based on your scenario</div>',
+        unsafe_allow_html=True,
+    )
+
+    # Toggle state — uniqueness by filename
+    state_key = f"lib_ab_state_{filename}"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = {
+            feat: bool(tags.get(feat, False)) for feat in BINARY_FEATURES
+        }
+
+    # Reset button
+    col_reset, _ = st.columns([1, 4])
+    with col_reset:
+        if st.button("↻ Reset", key=f"lib_reset_{filename}"):
+            st.session_state[state_key] = {
+                feat: bool(tags.get(feat, False)) for feat in BINARY_FEATURES
+            }
+            for key in list(st.session_state.keys()):
+                if key.startswith(f"lib_ab_generated_{filename}"):
+                    del st.session_state[key]
+            st.rerun()
+
+    # Toggles
+    cols = st.columns(3)
+    for i, feat in enumerate(BINARY_FEATURES):
+        with cols[i % 3]:
+            current = st.session_state[state_key][feat]
+            new_value = st.toggle(
+                display_name(feat),
+                value=current,
+                key=f"lib_toggle_{filename}_{feat}",
+            )
+            st.session_state[state_key][feat] = new_value
+
+    # Compute delta via model
+    original_X = tags_to_features(tags, feature_cols)
+    original_ctr = float(model.predict(original_X)[0])
+
+    modified_tags = dict(tags)
+    for feat in BINARY_FEATURES:
+        modified_tags[feat] = st.session_state[state_key][feat]
+
+    modified_X = tags_to_features(modified_tags, feature_cols)
+    modified_ctr = float(model.predict(modified_X)[0])
+    diff = modified_ctr - original_ctr
+
+    # Changes list
+    changes = []
+    for feat in BINARY_FEATURES:
+        original_val = bool(tags.get(feat, False))
+        new_val = st.session_state[state_key][feat]
+        if original_val != new_val:
+            action = "turn on" if new_val else "turn off"
+            changes.append((feat, action, new_val))
+
+    AB_STRONG = 0.10
+    AB_WEAK = 0.05
+    direction, strength = categorize_strength(diff, AB_STRONG, AB_WEAK)
+
+    if not changes:
+        verdict_html = '<span style="color:#888;font-size:15px;">Nothing changed</span>'
+        arrow_html = '<span style="color:#b5b3a8;font-size:36px;">—</span>'
+    else:
+        changes_text = ", ".join(
+            f"<b>{action} {display_name(feat)}</b>" for feat, action, _ in changes
+        )
+        
+        if direction == "neutral":
+            label = "Correlation barely changes"
+            label_color = "#888"
+        elif direction == "up":
+            label = "Correlation with CTR strengthens" if strength == "strong" else "Correlation with CTR slightly strengthens"
+            label_color = "#1D9E75"
+        else:
+            label = "Correlation with CTR weakens" if strength == "strong" else "Correlation with CTR slightly weakens"
+            label_color = "#E24B4A"
+        
+        if direction == "neutral":
+            arrow_html = '<span style="color:#b5b3a8;font-size:36px;">—</span>'
+        elif direction == "up":
+            arrows = "↑↑" if strength == "strong" else "↑"
+            arrow_html = f'<span style="color:#1D9E75;font-size:36px;font-weight:600;letter-spacing:-6px;">{arrows}</span>'
+        else:
+            arrows = "↓↓" if strength == "strong" else "↓"
+            arrow_html = f'<span style="color:#E24B4A;font-size:36px;font-weight:600;letter-spacing:-6px;">{arrows}</span>'
+        
+        verdict_html = (
+            f'<div style="font-size:15px;color:{label_color};font-weight:500;margin-bottom:4px;">{label}</div>'
+            f'<div style="font-size:13px;color:#666;">{changes_text}</div>'
+        )
+
+    # Result plate
+    st.markdown(f"""
+    <div style="margin-top:24px;padding:20px;background:#faf9f5;border-radius:12px;">
+        <div style="display:flex;align-items:center;gap:24px;">
+            <div style="min-width:80px;text-align:center;">{arrow_html}</div>
+            <div style="flex:1;">{verdict_html}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # === AI reference generation ===
+    if not changes:
+        st.markdown(
+            "<div style='font-size:13px;color:#888;margin-top:16px;'>"
+            "Toggle some tags above — and you'll be able to generate a visual reference."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    import hashlib
+    scenario_signature = "|".join(
+        f"{feat}={int(val)}" for feat, _, val in sorted(changes, key=lambda x: x[0])
+    )
+    scenario_hash = hashlib.md5(scenario_signature.encode()).hexdigest()[:8]
+    cache_key = f"lib_ab_generated_{filename}_{scenario_hash}"
+
+    st.markdown('<div style="height:16px;"></div>', unsafe_allow_html=True)
+
+    if cache_key not in st.session_state:
+        if st.button(
+            "✨ Generate a visual reference for this scenario",
+            use_container_width=True,
+            key=f"lib_gen_btn_{filename}_{scenario_hash}",
+        ):
+            if source_image_bytes is None:
+                st.error("Source image not found on disk")
+            else:
+                with st.spinner("Generating (~15-30 seconds)..."):
+                    prompt = build_scenario_prompt(changes)
+                    image_bytes, error = generate_image_via_openai(prompt, source_image_bytes)
+                    
+                    if error:
+                        st.error(f"Generation error: {error}")
+                    else:
+                        st.session_state[cache_key] = {
+                            "image": image_bytes,
+                            "prompt": prompt,
+                            "scenario": changes,
+                        }
+                        st.rerun()
+    else:
+        result = st.session_state[cache_key]
+        
+        col_orig, col_new = st.columns(2, gap="large")
+        with col_orig:
+            st.markdown("<div style='font-size:13px;color:#888;margin-bottom:8px;'>Original</div>", unsafe_allow_html=True)
+            st.image(source_image_bytes, use_container_width=True)
+        with col_new:
+            st.markdown("<div style='font-size:13px;color:#888;margin-bottom:8px;'>AI reference for the scenario</div>", unsafe_allow_html=True)
+            st.image(result["image"], use_container_width=True)
+        
+        st.markdown(
+            "<div style='font-size:12px;color:#888;margin-top:12px;line-height:1.6;'>"
+            "This reference is a starting point for the designer. "
+            "Logo, typography, and final execution are up to the designer."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        
+        with st.expander("Full prompt"):
+            st.code(result["prompt"], language=None)
+        
+        if st.button("🔄 Regenerate", key=f"lib_regen_{filename}_{scenario_hash}"):
+            del st.session_state[cache_key]
+            st.rerun()
+
+def render_block_similar_library(similar, current_filename):
+    """Show similar creatives from the database with links."""
+    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">Similar creatives from the database</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:13px;color:#888;margin-bottom:20px;">Creatives with a similar tag set, sorted by actual CTR</div>', unsafe_allow_html=True)
+
+    if not similar:
+        st.markdown(
+            "<div style='color:#888;font-size:14px;'>No similar creatives found</div>",
+            unsafe_allow_html=True
+        )
+        return
+
+    creatives = []
+    for idx, sim_score in similar:
+        row = df.loc[idx]
+        creatives.append({"filename": row["filename"], "ctr": row["ctr"], "row": row})
+    creatives.sort(key=lambda x: x["ctr"], reverse=True)
+    median_ctr = df["ctr"].median()
+
+    for row_start in [0, 5]:
+        if row_start == 5:
+            st.markdown('<div style="height:24px;"></div>', unsafe_allow_html=True)
+        cols = st.columns(5, gap="small")
+        for i, c in enumerate(creatives[row_start:row_start+5]):
+            with cols[i]:
+                image_path = os.path.join(IMAGES_DIR, c["filename"])
+                if os.path.exists(image_path):
+                    img_data = base64.b64encode(open(image_path, 'rb').read()).decode()
+                    st.markdown(f"""
+                    <div style="height:200px;background:#f5f3ed;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+                        <img src="data:image/png;base64,{img_data}"
+                             style="width:100%;height:100%;object-fit:cover;"/>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="height:200px;background:#f0efe9;border-radius:8px;"></div>', unsafe_allow_html=True)
+
+                ctr_color = "#1D9E75" if c["ctr"] >= median_ctr else "#E24B4A"
+                active = []
+                for binary in BINARY_FEATURES:
+                    if binary in c["row"].index and c["row"][binary] == True:
+                        active.append(binary)
+                feat_imp = {b: np.abs(shap_df[b]).mean() for b in active if b in shap_df.columns}
+                top_tags = sorted(active, key=lambda x: feat_imp.get(x, 0), reverse=True)[:3]
+                tag_str = ", ".join(display_name(t) for t in top_tags)
+
+                st.markdown(f"""
+                <div style="font-size:20px;font-weight:600;color:{ctr_color};margin-top:6px;">{c['ctr']:.2f}%</div>
+                <div style="font-size:11px;color:#888;min-height:32px;">{tag_str if tag_str else '—'}</div>
+                """, unsafe_allow_html=True)
+                
+                # Link to open this creative in library
+                from urllib.parse import quote
+                st.link_button(
+                    "Open →",
+                    f"/Library?creative={quote(str(c['filename']))}",
+                    use_container_width=True,
+                )
 
 
 # ============================================================
@@ -533,6 +894,56 @@ def render_library_creative(idx):
         
         If no significant pairs are found, the tag combination of this creative doesn't have
         strong synergies or conflicts in the data.
+        """)
+
+    # === Block 4: A/B scenarios ===
+    divider()
+    source_image_bytes = read_image_bytes(filename)
+    render_block_ab_scenarios_library(tags, filename, source_image_bytes)
+    
+    spacer()
+    with st.expander("ℹ️ How this is calculated"):
+        st.markdown("""
+        **A/B scenarios.** Toggling tags re-runs the LightGBM model with the modified tag
+        combination. The arrow shows the direction and strength of the predicted CTR shift
+        compared to the original tag set:
+        
+        - ↑↑ / ↓↓ — strong shift (≥ 0.30 CTR percentage points)
+        - ↑ / ↓ — moderate shift (≥ 0.10)
+        - — — neutral
+        
+        **AI reference generation.** Once you've changed at least one tag, you can generate
+        a visual reference. The system builds a prompt from your changes and uses OpenAI's
+        gpt-image-1.5 (image-to-image) to modify the original creative — keeping the brand
+        identity but adjusting the visual elements according to your scenario.
+        
+        The result is a **reference for the designer**, not a final creative — expect visual
+        artifacts. Final logo, typography, and execution are up to the designer.
+        """)
+    
+    # === Block 5: Similar creatives ===
+    divider()
+    similar = find_similar_creatives(
+        active_tags,
+        current_filename=filename,
+        food_type=tags.get("food_type"),
+        drink_type=tags.get("drink_type"),
+        top_n=10,
+    )
+    render_block_similar_library(similar, filename)
+    
+    spacer()
+    with st.expander("ℹ️ How this is calculated"):
+        st.markdown("""
+        We compute the similarity of each creative in the database to the current one based
+        on the overlap of their tag sets, weighted by tag importance (average absolute SHAP).
+        
+        If the current creative has a food/drink category, we first look at creatives within
+        the same category. If the category has fewer than 10 creatives, we expand to the
+        whole database.
+        
+        The top 10 most similar creatives are shown, sorted by actual CTR (highest first).
+        Click "Open →" on any card to see its full breakdown.
         """)
 
 
@@ -791,3 +1202,9 @@ else:
                 if st.button("Next →", disabled=(page >= total_pages - 1), use_container_width=True, key="page_next_bottom"):
                     st.session_state[page_state_key] = page + 1
                     st.rerun()
+
+st.markdown("""
+<div style="text-align:center;font-size:13px;color:#bbb;margin:60px 0 20px 0;padding-top:24px;border-top:1px solid #eee;">
+    Creative Analyzer · Hackathon MVP · Built in Streamlit · by Viktoriia Iachmeneva · 2026
+</div>
+""", unsafe_allow_html=True)
