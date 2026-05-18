@@ -34,6 +34,124 @@ st.set_page_config(
 
 st.markdown(COMMON_CSS, unsafe_allow_html=True)
 
+LIBRARY_CSS = """
+<style>
+    .stApp {
+        background: #ffffff;
+    }
+
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 5rem;
+        max-width: 1200px;
+    }
+
+    .ca-kicker {
+        font-size: 12px;
+        color: #0009dc;
+        letter-spacing: 1.4px;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .ca-title {
+        font-size: 40px;
+        font-weight: 650;
+        letter-spacing: -1.2px;
+        color: #080808;
+        margin: 0 0 12px 0;
+    }
+
+    .ca-subtitle {
+        font-size: 17px;
+        color: rgba(8,8,8,0.66);
+        line-height: 1.55;
+        max-width: 720px;
+        margin: 0;
+    }
+
+    .ca-chip {
+        display: inline-block;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        margin-right: 6px;
+        margin-top: 8px;
+    }
+
+    .ca-card {
+        background: linear-gradient(180deg, #ffffff 0%, #f9f9f9 100%);
+        border: 1px solid #eeeeee;
+        border-radius: 22px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .ca-soft-blue {
+        background: linear-gradient(180deg, rgba(0,9,220,0.06) 0%, rgba(65,105,225,0.10) 100%);
+        border: 1px solid rgba(0,9,220,0.12);
+    }
+
+        div[data-testid="stExpander"] {
+        border: 1px solid #eeeeee !important;
+        border-radius: 18px !important;
+        overflow: hidden !important;
+        background: #ffffff !important;
+    }
+
+    div[data-testid="stExpander"] details summary {
+        background:
+            radial-gradient(circle at 8% 50%, rgba(174,243,62,0.20), transparent 24%),
+            radial-gradient(circle at 92% 50%, rgba(0,9,220,0.08), transparent 26%),
+            linear-gradient(135deg, #ffffff 0%, #f9f9f9 100%) !important;
+        color: #080808 !important;
+        font-weight: 600 !important;
+        border-bottom: 1px solid #eeeeee !important;
+        padding: 13px 16px !important;
+    }
+
+    div[data-testid="stExpander"] details summary:hover {
+        background:
+            radial-gradient(circle at 8% 50%, rgba(174,243,62,0.28), transparent 24%),
+            radial-gradient(circle at 92% 50%, rgba(0,9,220,0.12), transparent 26%),
+            linear-gradient(135deg, #ffffff 0%, #f9f9f9 100%) !important;
+    }
+
+    div[data-testid="stExpander"] details summary p {
+        font-size: 13px !important;
+        color: #080808 !important;
+        letter-spacing: 0.1px !important;
+    }
+
+    div[data-testid="stExpander"] details div[data-testid="stExpanderDetails"] {
+        background: #ffffff !important;
+        padding: 18px 20px 20px 20px !important;
+    }
+
+    div[data-testid="stExpander"] details div[data-testid="stMarkdownContainer"] {
+        color: rgba(8,8,8,0.68) !important;
+        font-size: 14px !important;
+        line-height: 1.65 !important;
+    }
+
+    div[data-testid="stExpander"] details div[data-testid="stMarkdownContainer"] strong {
+        color: #080808 !important;
+        font-weight: 650 !important;
+    }
+
+    div[data-testid="stExpander"] ul {
+        margin-top: 8px !important;
+        padding-left: 22px !important;
+    }
+
+    div[data-testid="stExpander"] li {
+        margin-bottom: 6px !important;
+    }
+</style>
+"""
+
+st.markdown(LIBRARY_CSS, unsafe_allow_html=True)
+
 # ============================================================
 # Data and model
 # ============================================================
@@ -169,16 +287,18 @@ def categorize_strength(value, strong_threshold, weak_threshold):
 
 
 def arrow_symbol(direction, strength):
-    """HTML for arrows: colored double/single, or gray dash for neutral."""
+    """HTML arrows: green for positive, red for negative, gray for neutral."""
     if direction == "neutral":
-        return '<span style="color:#b5b3a8;font-size:18px;">—</span>'
+        return '<span style="color:rgba(8,8,8,0.34);font-size:20px;font-weight:650;">—</span>'
+
     if direction == "up":
         arrows = "↑↑" if strength == "strong" else "↑"
         color = "#1D9E75"
     else:
         arrows = "↓↓" if strength == "strong" else "↓"
         color = "#E24B4A"
-    return f'<span style="color:{color};font-weight:600;font-size:20px;letter-spacing:-3px;">{arrows}</span>'
+
+    return f'<span style="color:{color};font-weight:750;font-size:22px;letter-spacing:-3px;">{arrows}</span>'
 
 # ============================================================
 # Calculation functions for creative breakdown
@@ -252,15 +372,19 @@ def get_segment_context(tags):
 
 
 def calculate_active_combinations(active_tags, food_type=None, drink_type=None, top_n_each=3):
-    """Top-3 positive and top-3 negative pairs among active tags."""
+    """Top positive and negative pairs among active tags."""
     if food_type and food_type != "none":
-        segment_filter = (interactions_df["segment_type"] == "food") & \
-                        (interactions_df["segment"] == food_type)
+        segment_filter = (
+            (interactions_df["segment_type"] == "food") &
+            (interactions_df["segment"] == food_type)
+        )
     elif drink_type and drink_type != "none":
-        segment_filter = (interactions_df["segment_type"] == "drink") & \
-                        (interactions_df["segment"] == drink_type)
+        segment_filter = (
+            (interactions_df["segment_type"] == "drink") &
+            (interactions_df["segment"] == drink_type)
+        )
     else:
-        segment_filter = (interactions_df["segment_type"] == "all")
+        segment_filter = interactions_df["segment_type"] == "all"
     
     segment_df = interactions_df[segment_filter]
     
@@ -268,6 +392,7 @@ def calculate_active_combinations(active_tags, food_type=None, drink_type=None, 
         segment_df = interactions_df[interactions_df["segment_type"] == "all"]
     
     active_set = set(active_tags)
+
     active_pairs = segment_df[
         segment_df["feat1"].isin(active_set) &
         segment_df["feat2"].isin(active_set)
@@ -276,8 +401,15 @@ def calculate_active_combinations(active_tags, food_type=None, drink_type=None, 
     if len(active_pairs) == 0:
         return [], []
     
-    positive = active_pairs[active_pairs["interaction"] > 0.01].nlargest(top_n_each, "interaction")
-    negative = active_pairs[active_pairs["interaction"] < -0.01].nsmallest(top_n_each, "interaction")
+    positive = (
+        active_pairs[active_pairs["interaction"] > 0]
+        .nlargest(top_n_each, "interaction")
+    )
+
+    negative = (
+        active_pairs[active_pairs["interaction"] < 0]
+        .nsmallest(top_n_each, "interaction")
+    )
     
     return positive.to_dict("records"), negative.to_dict("records")
 
@@ -330,7 +462,7 @@ def divider():
 
 
 def render_block_tag_effects(active_tags):
-    """Tag correlation with CTR — arrows instead of numbers."""
+    """Tag correlation with CTR - arrows instead of numbers."""
     effects = calculate_tag_effects(active_tags)
     
     TAG_STRONG = 0.1
@@ -341,31 +473,46 @@ def render_block_tag_effects(active_tags):
         direction, strength = categorize_strength(val, TAG_STRONG, TAG_WEAK)
         categorized.append((tag, direction, strength))
     
-    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">Tag correlation with CTR</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div style="font-size:13px;color:#888;margin-bottom:20px;">'
-        'Which tags appear more often in creatives with high or low CTR. '
-        '<b>↑↑ / ↓↓</b> — strong correlation, <b>↑ / ↓</b> — moderate, <b>—</b> — neutral. '
-        'This is a pattern in the data, not a guaranteed effect.</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown("""
+<div style="margin:8px 0 28px 0;">
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px;">
+Pattern strength
+</div>
+<div style="font-size:28px;font-weight:650;color:#080808;margin-bottom:8px;letter-spacing:-0.6px;">
+Tag correlation with CTR
+</div>
+<div style="font-size:15px;color:rgba(8,8,8,0.62);max-width:860px;line-height:1.55;">
+Which detected tags appear more often in creatives with high or low CTR. <b>↑↑ / ↓↓</b> means strong correlation, <b>↑ / ↓</b> means moderate. This is a pattern in the data, not a guaranteed effect.
+</div>
+</div>
+""", unsafe_allow_html=True)
     
     if not categorized:
-        st.markdown(
-            "<div style='color:#888;font-size:14px;'>No significant effects found</div>",
-            unsafe_allow_html=True
-        )
+        st.markdown("""
+<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:22px 24px;position:relative;overflow:hidden;">
+<div style="position:absolute;top:0;left:0;right:0;height:3px;background:#080808;"></div>
+<div style="font-size:14px;color:rgba(8,8,8,0.58);">
+No significant effects found for this creative.
+</div>
+</div>
+""", unsafe_allow_html=True)
         return
     
     rows_html = ""
     for tag, direction, strength in categorized:
         rows_html += f"""
-        <div style="padding:10px 0;border-bottom:1px solid #f5f3ed;display:flex;align-items:center;gap:12px;">
-            <span style="width:70px;text-align:center;">{arrow_symbol(direction, strength)}</span>
-            <span style="flex:1;font-size:14px;">{display_name(tag)}</span>
-        </div>
-        """
-    st.markdown(rows_html, unsafe_allow_html=True)
+<div style="padding:16px 0;border-bottom:1px solid #eeeeee;display:flex;align-items:center;gap:16px;">
+<span style="width:72px;text-align:center;">{arrow_symbol(direction, strength)}</span>
+<span style="flex:1;font-size:14px;color:rgba(8,8,8,0.72);font-weight:500;">{display_name(tag)}</span>
+</div>
+"""
+    
+    st.markdown(f"""
+<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:22px 26px;position:relative;overflow:hidden;">
+<div style="position:absolute;top:0;left:0;right:0;height:3px;background:#0009dc;"></div>
+{rows_html}
+</div>
+""", unsafe_allow_html=True)
 
 
 def render_block_segment_context(tags):
@@ -375,53 +522,115 @@ def render_block_segment_context(tags):
     if not insights:
         return
     
-    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">Creative category</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div style="font-size:13px;color:#888;margin-bottom:20px;">'
-        'How strong creatives in the same category are within the entire database</div>',
-        unsafe_allow_html=True,
-    )
-    
+    st.markdown("""
+<div style="margin:8px 0 28px 0;">
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px;">
+Category context
+</div>
+<div style="font-size:28px;font-weight:650;color:#080808;margin-bottom:8px;letter-spacing:-0.6px;">
+Creative category
+</div>
+<div style="font-size:15px;color:rgba(8,8,8,0.62);max-width:860px;line-height:1.55;">
+How this food or drink category performs compared with the full creative database.
+</div>
+</div>
+""", unsafe_allow_html=True)
+
     rows_html = ""
+    NEUTRAL_THRESHOLD = 0.10
+
     for ins in insights:
         diff = ins["diff"]
-        is_better = diff > 0
-        color = "#1D9E75" if is_better else "#E24B4A"
-        sign = "+" if is_better else ""
-        
-        if abs(diff) < 0.1:
-            verdict = "Category performs roughly on par with the rest"
-            verdict_color = "#888"
-        elif is_better:
-            verdict = f"✓ Category outperforms others by {sign}{diff:.2f}%"
-            verdict_color = "#1D9E75"
+        abs_diff = abs(diff)
+
+        if diff > 0:
+            accent_color = "#1D9E75"
+            accent_bg = "rgba(29,158,117,0.10)"
+            diff_text = f"+{diff:.2f}%"
+
+            if abs_diff < NEUTRAL_THRESHOLD:
+                accent_label = "Slightly above average"
+                verdict = (
+                    "This category is close to the database average, with a small positive difference. "
+                    "Treat it as a neutral-to-positive signal, not a strong outperformance."
+                )
+            else:
+                accent_label = "Above database average"
+                verdict = "Creatives in this category tend to perform better than the database average."
+
+        elif diff < 0:
+            accent_color = "#E24B4A"
+            accent_bg = "rgba(226,75,74,0.10)"
+            diff_text = f"{diff:.2f}%"
+
+            if abs_diff < NEUTRAL_THRESHOLD:
+                accent_label = "Slightly below average"
+                verdict = (
+                    "This category is close to the database average, with a small negative difference. "
+                    "Treat it as a neutral-to-negative signal, not a strong underperformance."
+                )
+            else:
+                accent_label = "Below database average"
+                verdict = "Creatives in this category tend to underperform compared with the database average."
+
         else:
-            verdict = f"✗ Category underperforms others by {diff:.2f}%"
-            verdict_color = "#E24B4A"
-        
+            accent_color = "rgba(8,8,8,0.42)"
+            accent_bg = "rgba(8,8,8,0.04)"
+            diff_text = "0.00%"
+            accent_label = "Neutral"
+            verdict = "This category performs at the same level as the database average."
+
         rows_html += f"""
-        <div style="padding:18px 20px;margin-bottom:12px;background:#faf9f5;border-radius:12px;">
-            <div style="font-size:18px;font-weight:600;margin-bottom:14px;color:#1a1a1a;text-transform:capitalize;">
-                {ins['label']}
-            </div>
-            <div style="display:flex;gap:24px;margin-bottom:12px;">
-                <div>
-                    <div style="font-size:11px;color:#888;margin-bottom:2px;">Category CTR</div>
-                    <div style="font-size:20px;font-weight:600;color:#1a1a1a;">{ins['ctr']:.2f}%</div>
-                </div>
-                <div>
-                    <div style="font-size:11px;color:#888;margin-bottom:2px;">All creatives CTR</div>
-                    <div style="font-size:20px;font-weight:600;color:#1a1a1a;">{base_ctr:.2f}%</div>
-                </div>
-                <div>
-                    <div style="font-size:11px;color:#888;margin-bottom:2px;">Difference</div>
-                    <div style="font-size:20px;font-weight:600;color:{color};">{sign}{diff:.2f}%</div>
-                </div>
-            </div>
-            <div style="font-size:14px;color:{verdict_color};font-weight:500;">{verdict}</div>
-            <div style="font-size:12px;color:#888;margin-top:6px;">Based on {ins['count']} creatives</div>
-        </div>
-        """
+<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:26px 26px;margin-bottom:14px;position:relative;overflow:hidden;">
+<div style="position:absolute;top:0;left:0;right:0;height:4px;background:{accent_color};"></div>
+
+<div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:28px;align-items:center;">
+
+<div>
+<div style="font-size:22px;font-weight:650;color:#080808;text-transform:capitalize;margin-bottom:8px;">
+{ins['label']}
+</div>
+
+<div style="display:inline-flex;align-items:center;gap:8px;background:{accent_bg};color:{accent_color};border-radius:999px;padding:7px 12px;font-size:12px;font-weight:650;margin-bottom:14px;">
+<span style="width:7px;height:7px;border-radius:50%;background:{accent_color};display:inline-block;"></span>
+{accent_label}
+</div>
+
+<div style="font-size:14px;color:rgba(8,8,8,0.66);line-height:1.65;max-width:620px;">
+{verdict}
+</div>
+
+<div style="font-size:12px;color:rgba(8,8,8,0.46);margin-top:12px;">
+Based on {ins['count']} creatives
+</div>
+</div>
+
+<div style="text-align:right;">
+<div style="font-size:12px;color:rgba(8,8,8,0.46);letter-spacing:1.1px;text-transform:uppercase;margin-bottom:6px;">
+Difference
+</div>
+
+<div style="font-size:46px;font-weight:750;color:{accent_color};line-height:1;letter-spacing:-1.4px;margin-bottom:14px;">
+{diff_text}
+</div>
+
+<div style="display:flex;justify-content:flex-end;gap:18px;flex-wrap:wrap;">
+<div>
+<div style="font-size:11px;color:rgba(8,8,8,0.44);margin-bottom:3px;">Category CTR</div>
+<div style="font-size:18px;font-weight:650;color:#080808;">{ins['ctr']:.2f}%</div>
+</div>
+
+<div>
+<div style="font-size:11px;color:rgba(8,8,8,0.44);margin-bottom:3px;">Database avg CTR</div>
+<div style="font-size:18px;font-weight:650;color:#080808;">{base_ctr:.2f}%</div>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+"""
+
     st.markdown(rows_html, unsafe_allow_html=True)
 
 
@@ -434,78 +643,148 @@ def render_block_combinations(active_tags, tags):
     )
     
     COMBO_STRONG = 0.08
-    COMBO_WEAK = 0.03
+    COMBO_WEAK = 0.00001
     
     all_combos = []
-    for combo in positive + negative:
+
+    for combo in positive:
+        direction, strength = categorize_strength(combo["interaction"], COMBO_STRONG, COMBO_WEAK)
+        all_combos.append((combo, direction, strength))
+
+    for combo in negative:
         direction, strength = categorize_strength(combo["interaction"], COMBO_STRONG, COMBO_WEAK)
         all_combos.append((combo, direction, strength))
     
-    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">Tag pair correlation with CTR</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div style="font-size:13px;color:#888;margin-bottom:20px;">'
-        'Which tag combinations correlate with CTR more or less than the tags taken separately. '
-        '<b>↑↑ / ↓↓</b> — strong, <b>↑ / ↓</b> — moderate, <b>—</b> — neutral.</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown("""
+<div style="margin:8px 0 28px 0;">
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px;">
+Combinations
+</div>
+<div style="font-size:28px;font-weight:650;color:#080808;margin-bottom:8px;letter-spacing:-0.6px;">
+Tag pair correlation with CTR
+</div>
+<div style="font-size:15px;color:rgba(8,8,8,0.62);max-width:860px;line-height:1.55;">
+Which active tag combinations correlate with CTR more or less than the tags taken separately. Green pairs indicate positive interaction, red pairs indicate negative interaction.
+</div>
+</div>
+""", unsafe_allow_html=True)
     
     if not all_combos:
-        st.markdown(
-            "<div style='color:#888;font-size:14px;'>No significant combinations found for this tag set</div>",
-            unsafe_allow_html=True
-        )
+        st.markdown("""
+<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:22px 24px;position:relative;overflow:hidden;">
+<div style="position:absolute;top:0;left:0;right:0;height:3px;background:#080808;"></div>
+<div style="font-size:14px;color:rgba(8,8,8,0.58);">
+No meaningful tag pair correlations found for this creative.
+</div>
+</div>
+""", unsafe_allow_html=True)
         return
     
     rows_html = ""
+
     for combo, direction, strength in all_combos:
+        if direction == "up":
+            row_color = "#1D9E75"
+            row_bg = "rgba(29,158,117,0.06)"
+            label = "Positive pair"
+        elif direction == "down":
+            row_color = "#E24B4A"
+            row_bg = "rgba(226,75,74,0.06)"
+            label = "Negative pair"
+        else:
+            row_color = "rgba(8,8,8,0.38)"
+            row_bg = "rgba(8,8,8,0.04)"
+            label = "Neutral pair"
+
         rows_html += f"""
-        <div style="padding:10px 0;border-bottom:1px solid #f5f3ed;display:flex;align-items:center;gap:12px;">
-            <span style="width:70px;text-align:center;">{arrow_symbol(direction, strength)}</span>
-            <span style="flex:1;font-size:14px;"><b>{display_name(combo['feat1'])}</b> × <b>{display_name(combo['feat2'])}</b></span>
-        </div>
-        """
-    st.markdown(rows_html, unsafe_allow_html=True)
+<div style="padding:16px 0;border-bottom:1px solid #eeeeee;display:grid;grid-template-columns:80px 1fr 140px;gap:14px;align-items:center;">
+<div style="text-align:center;background:{row_bg};border-radius:14px;padding:8px 0;">
+{arrow_symbol(direction, strength)}
+</div>
+
+<div style="font-size:14px;color:rgba(8,8,8,0.74);font-weight:500;">
+<b style="color:#080808;">{display_name(combo['feat1'])}</b>
+<span style="color:rgba(8,8,8,0.38);"> × </span>
+<b style="color:#080808;">{display_name(combo['feat2'])}</b>
+</div>
+
+<div style="text-align:right;">
+<span style="display:inline-flex;align-items:center;gap:6px;background:{row_bg};color:{row_color};border-radius:999px;padding:6px 10px;font-size:11px;font-weight:650;">
+<span style="width:6px;height:6px;border-radius:50%;background:{row_color};display:inline-block;"></span>
+{label}
+</span>
+</div>
+</div>
+"""
+
+    st.markdown(f"""
+<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:22px 26px;position:relative;overflow:hidden;">
+<div style="position:absolute;top:0;left:0;right:0;height:3px;background:#ff7cf5;"></div>
+{rows_html}
+</div>
+""", unsafe_allow_html=True)
 
 
 def render_block_ab_scenarios_library(tags, filename, source_image_bytes):
     """A/B scenarios + AI reference for a library creative."""
-    
-    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">A/B scenarios + AI reference</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div style="font-size:13px;color:#888;margin-bottom:20px;">'
-        'Toggle tags — see how the correlation with CTR changes, '
-        'and generate a visual reference based on your scenario</div>',
-        unsafe_allow_html=True,
-    )
+
+    st.markdown("""
+<div style="margin:8px 0 28px 0;">
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px;">
+Scenario testing
+</div>
+<div style="font-size:28px;font-weight:650;color:#080808;margin-bottom:8px;letter-spacing:-0.6px;">
+A/B scenarios + AI reference
+</div>
+<div style="font-size:15px;color:rgba(8,8,8,0.62);max-width:860px;line-height:1.55;">
+Toggle visual tags, compare the direction of the predicted CTR shift, and generate a visual reference for the selected scenario.
+</div>
+</div>
+""", unsafe_allow_html=True)
 
     # Toggle state — uniqueness by filename
     state_key = f"lib_ab_state_{filename}"
+
     if state_key not in st.session_state:
         st.session_state[state_key] = {
             feat: bool(tags.get(feat, False)) for feat in BINARY_FEATURES
         }
 
     # Reset button
-    col_reset, _ = st.columns([1, 4])
-    with col_reset:
-        if st.button("↻ Reset", key=f"lib_reset_{filename}"):
-            st.session_state[state_key] = {
-                feat: bool(tags.get(feat, False)) for feat in BINARY_FEATURES
-            }
-            for key in list(st.session_state.keys()):
-                if key.startswith(f"lib_ab_generated_{filename}"):
-                    del st.session_state[key]
-            st.rerun()
+    if st.button("↻ Reset scenario", key=f"lib_reset_{filename}"):
+        st.session_state[state_key] = {
+            feat: bool(tags.get(feat, False)) for feat in BINARY_FEATURES
+        }
+
+        # Reset actual Streamlit toggle states too
+        for feat in BINARY_FEATURES:
+            toggle_key = f"lib_toggle_{filename}_{feat}"
+            if toggle_key in st.session_state:
+                st.session_state[toggle_key] = bool(tags.get(feat, False))
+
+        # Remove generated references for this creative
+        for key in list(st.session_state.keys()):
+            if key.startswith(f"lib_ab_generated_{filename}"):
+                del st.session_state[key]
+
+        st.rerun()
+
+    st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
 
     # Toggles
-    cols = st.columns(3)
+    cols = st.columns(3, gap="large")
+
     for i, feat in enumerate(BINARY_FEATURES):
+        toggle_key = f"lib_toggle_{filename}_{feat}"
+
+        if toggle_key not in st.session_state:
+            st.session_state[toggle_key] = st.session_state[state_key][feat]
+
         with cols[i % 3]:
-            current = st.session_state[state_key][feat]
             new_value = st.toggle(
                 display_name(feat),
-                value=current,
-                key=f"lib_toggle_{filename}_{feat}",
+                value=st.session_state[toggle_key],
+                key=toggle_key,
             )
             st.session_state[state_key][feat] = new_value
 
@@ -525,7 +804,8 @@ def render_block_ab_scenarios_library(tags, filename, source_image_bytes):
     changes = []
     for feat in BINARY_FEATURES:
         original_val = bool(tags.get(feat, False))
-        new_val = st.session_state[state_key][feat]
+        new_val = bool(st.session_state[state_key][feat])
+
         if original_val != new_val:
             action = "turn on" if new_val else "turn off"
             changes.append((feat, action, new_val))
@@ -534,66 +814,82 @@ def render_block_ab_scenarios_library(tags, filename, source_image_bytes):
     AB_WEAK = 0.05
     direction, strength = categorize_strength(diff, AB_STRONG, AB_WEAK)
 
+    # Result card
     if not changes:
-        verdict_html = '<span style="color:#888;font-size:15px;">Nothing changed</span>'
-        arrow_html = '<span style="color:#b5b3a8;font-size:36px;">—</span>'
+        accent_color = "rgba(8,8,8,0.34)"
+        accent_bg = "rgba(8,8,8,0.04)"
+        arrow_html = '<span style="color:rgba(8,8,8,0.34);font-size:40px;font-weight:700;">—</span>'
+        label = "Nothing changed yet"
+        details = "Toggle one or more visual tags to test an alternative creative scenario."
+
     else:
         changes_text = ", ".join(
             f"<b>{action} {display_name(feat)}</b>" for feat, action, _ in changes
         )
-        
-        if direction == "neutral":
-            label = "Correlation barely changes"
-            label_color = "#888"
-        elif direction == "up":
-            label = "Correlation with CTR strengthens" if strength == "strong" else "Correlation with CTR slightly strengthens"
-            label_color = "#1D9E75"
-        else:
-            label = "Correlation with CTR weakens" if strength == "strong" else "Correlation with CTR slightly weakens"
-            label_color = "#E24B4A"
-        
-        if direction == "neutral":
-            arrow_html = '<span style="color:#b5b3a8;font-size:36px;">—</span>'
-        elif direction == "up":
+
+        if direction == "up":
+            accent_color = "#1D9E75"
+            accent_bg = "rgba(29,158,117,0.10)"
             arrows = "↑↑" if strength == "strong" else "↑"
-            arrow_html = f'<span style="color:#1D9E75;font-size:36px;font-weight:600;letter-spacing:-6px;">{arrows}</span>'
-        else:
+            arrow_html = f'<span style="color:{accent_color};font-size:42px;font-weight:750;letter-spacing:-6px;">{arrows}</span>'
+            label = "Predicted CTR signal improves" if strength == "strong" else "Predicted CTR signal slightly improves"
+            details = changes_text
+
+        elif direction == "down":
+            accent_color = "#E24B4A"
+            accent_bg = "rgba(226,75,74,0.10)"
             arrows = "↓↓" if strength == "strong" else "↓"
-            arrow_html = f'<span style="color:#E24B4A;font-size:36px;font-weight:600;letter-spacing:-6px;">{arrows}</span>'
-        
-        verdict_html = (
-            f'<div style="font-size:15px;color:{label_color};font-weight:500;margin-bottom:4px;">{label}</div>'
-            f'<div style="font-size:13px;color:#666;">{changes_text}</div>'
-        )
+            arrow_html = f'<span style="color:{accent_color};font-size:42px;font-weight:750;letter-spacing:-6px;">{arrows}</span>'
+            label = "Predicted CTR signal weakens" if strength == "strong" else "Predicted CTR signal slightly weakens"
+            details = changes_text
 
-    # Result plate
+        else:
+            accent_color = "rgba(8,8,8,0.42)"
+            accent_bg = "rgba(8,8,8,0.04)"
+            arrow_html = '<span style="color:rgba(8,8,8,0.34);font-size:40px;font-weight:700;">—</span>'
+            label = "Predicted CTR signal stays neutral"
+            details = changes_text
+
     st.markdown(f"""
-    <div style="margin-top:24px;padding:20px;background:#faf9f5;border-radius:12px;">
-        <div style="display:flex;align-items:center;gap:24px;">
-            <div style="min-width:80px;text-align:center;">{arrow_html}</div>
-            <div style="flex:1;">{verdict_html}</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:22px 24px;margin-top:26px;position:relative;overflow:hidden;">
+<div style="position:absolute;top:0;left:0;right:0;height:4px;background:{accent_color};"></div>
 
-    # === AI reference generation ===
+<div style="display:grid;grid-template-columns:90px 1fr;gap:20px;align-items:center;">
+<div style="display:flex;align-items:center;justify-content:center;background:{accent_bg};border-radius:18px;min-height:78px;">
+{arrow_html}
+</div>
+
+<div>
+<div style="font-size:16px;font-weight:650;color:{accent_color};margin-bottom:6px;">
+{label}
+</div>
+<div style="font-size:13px;color:rgba(8,8,8,0.62);line-height:1.6;">
+{details}
+</div>
+</div>
+</div>
+</div>
+""", unsafe_allow_html=True)
+
+    # AI reference generation
     if not changes:
         st.markdown(
-            "<div style='font-size:13px;color:#888;margin-top:16px;'>"
-            "Toggle some tags above — and you'll be able to generate a visual reference."
+            "<div style='font-size:13px;color:rgba(8,8,8,0.48);margin-top:14px;'>"
+            "Toggle some tags above to generate a visual reference for the scenario."
             "</div>",
             unsafe_allow_html=True,
         )
         return
 
     import hashlib
+
     scenario_signature = "|".join(
         f"{feat}={int(val)}" for feat, _, val in sorted(changes, key=lambda x: x[0])
     )
     scenario_hash = hashlib.md5(scenario_signature.encode()).hexdigest()[:8]
     cache_key = f"lib_ab_generated_{filename}_{scenario_hash}"
 
-    st.markdown('<div style="height:16px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
 
     if cache_key not in st.session_state:
         if st.button(
@@ -607,7 +903,7 @@ def render_block_ab_scenarios_library(tags, filename, source_image_bytes):
                 with st.spinner("Generating (~15-30 seconds)..."):
                     prompt = build_scenario_prompt(changes)
                     image_bytes, error = generate_image_via_openai(prompt, source_image_bytes)
-                    
+
                     if error:
                         st.error(f"Generation error: {error}")
                     else:
@@ -617,91 +913,152 @@ def render_block_ab_scenarios_library(tags, filename, source_image_bytes):
                             "scenario": changes,
                         }
                         st.rerun()
+
     else:
         result = st.session_state[cache_key]
-        
+
         col_orig, col_new = st.columns(2, gap="large")
+
         with col_orig:
-            st.markdown("<div style='font-size:13px;color:#888;margin-bottom:8px;'>Original</div>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='font-size:12px;color:#0009dc;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:8px;'>Original</div>",
+                unsafe_allow_html=True,
+            )
             st.image(source_image_bytes, use_container_width=True)
+
         with col_new:
-            st.markdown("<div style='font-size:13px;color:#888;margin-bottom:8px;'>AI reference for the scenario</div>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='font-size:12px;color:#0009dc;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:8px;'>AI reference for the scenario</div>",
+                unsafe_allow_html=True,
+            )
             st.image(result["image"], use_container_width=True)
-        
+
         st.markdown(
-            "<div style='font-size:12px;color:#888;margin-top:12px;line-height:1.6;'>"
-            "This reference is a starting point for the designer. "
-            "Logo, typography, and final execution are up to the designer."
+            "<div style='font-size:12px;color:rgba(8,8,8,0.48);margin-top:12px;line-height:1.6;'>"
+            "This reference is a starting point for the designer. Logo, typography, and final execution are up to the designer."
             "</div>",
             unsafe_allow_html=True,
         )
-        
+
         with st.expander("Full prompt"):
             st.code(result["prompt"], language=None)
-        
+
         if st.button("🔄 Regenerate", key=f"lib_regen_{filename}_{scenario_hash}"):
             del st.session_state[cache_key]
             st.rerun()
 
 def render_block_similar_library(similar, current_filename):
     """Show similar creatives from the database with links."""
-    st.markdown('<div style="font-size:20px;font-weight:500;margin-bottom:6px;">Similar creatives from the database</div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size:13px;color:#888;margin-bottom:20px;">Creatives with a similar tag set, sorted by actual CTR</div>', unsafe_allow_html=True)
+    st.markdown("""
+<div style="margin:8px 0 28px 0;">
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px;">
+Creative neighborhood
+</div>
+<div style="font-size:28px;font-weight:650;color:#080808;margin-bottom:8px;letter-spacing:-0.6px;">
+Similar creatives from the database
+</div>
+<div style="font-size:15px;color:rgba(8,8,8,0.62);max-width:860px;line-height:1.55;">
+Creatives with a similar tag set, sorted by actual CTR. Use them as nearby references for what performed better or worse.
+</div>
+</div>
+""", unsafe_allow_html=True)
 
     if not similar:
-        st.markdown(
-            "<div style='color:#888;font-size:14px;'>No similar creatives found</div>",
-            unsafe_allow_html=True
-        )
+        st.markdown("""
+<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:22px 24px;position:relative;overflow:hidden;">
+<div style="position:absolute;top:0;left:0;right:0;height:3px;background:#080808;"></div>
+<div style="font-size:14px;color:rgba(8,8,8,0.58);">
+No similar creatives found.
+</div>
+</div>
+""", unsafe_allow_html=True)
         return
 
     creatives = []
     for idx, sim_score in similar:
         row = df.loc[idx]
-        creatives.append({"filename": row["filename"], "ctr": row["ctr"], "row": row})
+        creatives.append({
+            "filename": row["filename"],
+            "ctr": row["ctr"],
+            "row": row,
+        })
+
     creatives.sort(key=lambda x: x["ctr"], reverse=True)
     median_ctr = df["ctr"].median()
 
     for row_start in [0, 5]:
         if row_start == 5:
-            st.markdown('<div style="height:24px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="height:22px;"></div>', unsafe_allow_html=True)
+
         cols = st.columns(5, gap="small")
-        for i, c in enumerate(creatives[row_start:row_start+5]):
+
+        for i, c in enumerate(creatives[row_start:row_start + 5]):
             with cols[i]:
                 image_path = os.path.join(IMAGES_DIR, c["filename"])
-                if os.path.exists(image_path):
-                    img_data = base64.b64encode(open(image_path, 'rb').read()).decode()
-                    st.markdown(f"""
-                    <div style="height:200px;background:#f5f3ed;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-                        <img src="data:image/png;base64,{img_data}"
-                             style="width:100%;height:100%;object-fit:cover;"/>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown('<div style="height:200px;background:#f0efe9;border-radius:8px;"></div>', unsafe_allow_html=True)
 
                 ctr_color = "#1D9E75" if c["ctr"] >= median_ctr else "#E24B4A"
+                ctr_label = "above median" if c["ctr"] >= median_ctr else "below median"
+
                 active = []
                 for binary in BINARY_FEATURES:
                     if binary in c["row"].index and c["row"][binary] == True:
                         active.append(binary)
-                feat_imp = {b: np.abs(shap_df[b]).mean() for b in active if b in shap_df.columns}
-                top_tags = sorted(active, key=lambda x: feat_imp.get(x, 0), reverse=True)[:3]
-                tag_str = ", ".join(display_name(t) for t in top_tags)
 
-                st.markdown(f"""
-                <div style="font-size:20px;font-weight:600;color:{ctr_color};margin-top:6px;">{c['ctr']:.2f}%</div>
-                <div style="font-size:11px;color:#888;min-height:32px;">{tag_str if tag_str else '—'}</div>
-                """, unsafe_allow_html=True)
-                
-                # Link to open this creative in library
+                feat_imp = {
+                    b: np.abs(shap_df[b]).mean()
+                    for b in active
+                    if b in shap_df.columns
+                }
+
+                top_tags = sorted(
+                    active,
+                    key=lambda x: feat_imp.get(x, 0),
+                    reverse=True
+                )[:3]
+
+                tag_str = ", ".join(display_name(t) for t in top_tags)
+                brand_label = c["row"].get("brand", "—")
+                year_label = c["row"].get("year", "—")
+
+                if os.path.exists(image_path):
+                    img_data = base64.b64encode(open(image_path, "rb").read()).decode()
+                    st.markdown(
+                        f'<div style="aspect-ratio:1;border-radius:18px 18px 0 0;overflow:hidden;background:#ffffff;'
+                        f'border:1px solid #eeeeee;border-bottom:none;display:flex;align-items:center;justify-content:center;">'
+                        f'<img src="data:image/png;base64,{img_data}" style="max-width:100%;max-height:100%;object-fit:contain;display:block;"/>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        '<div style="aspect-ratio:1;border-radius:18px 18px 0 0;background:#ffffff;'
+                        'border:1px solid #eeeeee;border-bottom:none;display:flex;align-items:center;justify-content:center;'
+                        'color:rgba(8,8,8,0.38);font-size:12px;">no image</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                st.markdown(
+                    f'<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);'
+                    f'border:1px solid #eeeeee;border-top:3px solid {ctr_color};'
+                    f'border-radius:0 0 18px 18px;padding:13px 13px 14px 13px;margin-bottom:10px;">'
+                    f'<div style="font-size:22px;font-weight:700;color:{ctr_color};line-height:1;">{c["ctr"]:.2f}%</div>'
+                    f'<div style="font-size:11px;color:rgba(8,8,8,0.46);margin-top:4px;">CTR · {ctr_label}</div>'
+                    f'<div style="height:1px;background:#eeeeee;margin:12px 0 10px 0;"></div>'
+                    f'<div style="font-size:12px;color:rgba(8,8,8,0.62);line-height:1.45;min-height:52px;">'
+                    f'<b style="color:#080808;">{brand_label}</b> · {year_label}<br>'
+                    f'{tag_str if tag_str else "—"}'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
                 from urllib.parse import quote
+
                 st.link_button(
                     "Open →",
                     f"/Library?creative={quote(str(c['filename']))}",
                     use_container_width=True,
                 )
-
 
 # ============================================================
 # Read query param from Insights — if present, open that creative
@@ -782,7 +1139,7 @@ def render_library_creative(idx):
             </div>
             """
     
-    # === Header: image + base info ===
+        # === Header: image + base info ===
     col_img, col_info = st.columns([0.9, 1.6], gap="large")
     
     with col_img:
@@ -792,43 +1149,48 @@ def render_library_creative(idx):
             if image.height > max_height:
                 ratio = max_height / image.height
                 image = image.resize((int(image.width * ratio), max_height), Image.LANCZOS)
+
             st.image(image)
         else:
             st.info(f"Image not found: {filename}")
     
     with col_info:
-        if badge_html:
-            st.markdown(badge_html, unsafe_allow_html=True)
         actual_ctr = row["ctr"]
         impressions = row["impressions"]
         brand = row.get("brand", "—")
         year = row.get("year", "—")
         
-        # Comparison with database
         base_ctr = df["ctr"].mean()
         diff = actual_ctr - base_ctr
-        diff_color = "#1D9E75" if diff > 0 else "#E24B4A"
-        diff_sign = "+" if diff > 0 else ""
-        
-        st.markdown(f"""
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
-            <div style="background:#faf9f5;border-radius:10px;padding:14px 18px;">
-                <div style="font-size:11px;color:#888;margin-bottom:4px;">Actual CTR</div>
-                <div style="font-size:24px;font-weight:600;color:#1a1a1a;">{actual_ctr:.2f}%</div>
-                <div style="font-size:12px;color:{diff_color};margin-top:4px;">
-                    {diff_sign}{diff:.2f}% vs database ({base_ctr:.2f}%)
-                </div>
-            </div>
-            <div style="background:#faf9f5;border-radius:10px;padding:14px 18px;">
-                <div style="font-size:11px;color:#888;margin-bottom:4px;">Impressions</div>
-                <div style="font-size:24px;font-weight:600;color:#1a1a1a;">{impressions:,.0f}</div>
-                <div style="font-size:12px;color:#888;margin-top:4px;">
-                    {brand} · {year}
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
+
+        main_object = str(row.get("main_object", "—")).replace("_", " ")
+
+        food_type = str(row.get("food_type", "none")).replace("_", " ")
+        drink_type = str(row.get("drink_type", "none")).replace("_", " ")
+
+        if food_type != "none":
+            category_type = food_type
+        elif drink_type != "none":
+            category_type = drink_type
+        else:
+            category_type = "not specified"
+
+        if diff > 0:
+            diff_color = "#1D9E75"
+            diff_bg = "rgba(29,158,117,0.10)"
+            diff_sign = "+"
+            diff_label = "Above database average"
+        elif diff < 0:
+            diff_color = "#E24B4A"
+            diff_bg = "rgba(226,75,74,0.10)"
+            diff_sign = ""
+            diff_label = "Below database average"
+        else:
+            diff_color = "rgba(8,8,8,0.42)"
+            diff_bg = "rgba(8,8,8,0.04)"
+            diff_sign = ""
+            diff_label = "At database average"
+
         # Collect tags
         tags = {}
         for cat in CATEGORICAL_TAGS:
@@ -836,8 +1198,56 @@ def render_library_creative(idx):
         for binary in BINARY_FEATURES:
             if binary in row.index:
                 tags[binary] = bool(row[binary])
-        
-        st.markdown("<div style='font-size:14px;font-weight:500;margin-bottom:8px;'>Creative tags</div>", unsafe_allow_html=True)
+
+        st.markdown(f"""
+<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:24px 24px;position:relative;overflow:hidden;">
+<div style="position:absolute;top:0;left:0;right:0;height:4px;background:{diff_color};"></div>
+
+<div style="display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-bottom:20px;">
+<div>
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:8px;">
+Selected creative
+</div>
+<div style="font-size:24px;font-weight:650;color:#080808;letter-spacing:-0.5px;margin-bottom:8px;">
+{brand} · {year}
+</div>
+<div style="display:inline-flex;align-items:center;gap:8px;background:{diff_bg};color:{diff_color};border-radius:999px;padding:7px 12px;font-size:12px;font-weight:650;">
+<span style="width:7px;height:7px;border-radius:50%;background:{diff_color};display:inline-block;"></span>
+{diff_label}
+</div>
+</div>
+
+<div style="text-align:right;">
+<div style="font-size:12px;color:rgba(8,8,8,0.46);letter-spacing:1.1px;text-transform:uppercase;margin-bottom:6px;">
+Actual CTR
+</div>
+<div style="font-size:42px;font-weight:750;color:{diff_color};line-height:1;letter-spacing:-1.2px;">
+{actual_ctr:.2f}%
+</div>
+<div style="font-size:12px;color:rgba(8,8,8,0.52);margin-top:8px;">
+{diff_sign}{diff:.2f}% vs database avg ({base_ctr:.2f}%)
+</div>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+<div style="background:#ffffff;border:1px solid #eeeeee;border-radius:16px;padding:15px 16px;">
+<div style="font-size:11px;color:rgba(8,8,8,0.46);margin-bottom:5px;">Impressions</div>
+<div style="font-size:22px;font-weight:650;color:#080808;">{impressions:,.0f}</div>
+</div>
+
+<div style="background:#ffffff;border:1px solid #eeeeee;border-radius:16px;padding:15px 16px;">
+<div style="font-size:11px;color:rgba(8,8,8,0.46);margin-bottom:5px;">Creative type</div>
+<div style="font-size:18px;font-weight:650;color:#080808;text-transform:capitalize;">{main_object}</div>
+<div style="font-size:12px;color:rgba(8,8,8,0.52);margin-top:4px;text-transform:capitalize;">{category_type}</div>
+</div>
+
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px;">
+Creative tags
+</div>
+</div>
+""", unsafe_allow_html=True)
+
         st.markdown(render_tag_chips(tags), unsafe_allow_html=True)
     
     # === Active tags for analysis ===
@@ -947,11 +1357,67 @@ def render_library_creative(idx):
         """)
 
 
-# ============================================================
-# UI: Title
-# ============================================================
-st.title("📚 Creative Library")
-st.caption(f"{len(df)} creatives with actual CTR and AI-tagged visual elements")
+# # ============================================================
+# # UI: Page hero
+# # ============================================================
+# st.markdown(f"""
+# <div style="margin:24px 0 28px 0;padding:28px 30px;border-radius:26px;background:radial-gradient(circle at 8% 18%, rgba(174,243,62,0.24), transparent 28%),radial-gradient(circle at 92% 12%, rgba(255,124,245,0.12), transparent 28%),linear-gradient(135deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;">
+# <div style="display:grid;grid-template-columns:1.25fr 0.75fr;gap:28px;align-items:center;">
+
+# <div>
+# <div style="display:inline-flex;gap:8px;align-items:center;padding:7px 12px;border-radius:999px;background:#ffffff;border:1px solid #eeeeee;font-size:12px;color:rgba(8,8,8,0.58);margin-bottom:16px;">
+# <span style="width:7px;height:7px;border-radius:50%;background:#aef33e;display:inline-block;"></span>
+# Creative database
+# </div>
+
+# <div class="ca-kicker">
+# Explore tagged creatives
+# </div>
+
+# <h1 class="ca-title">
+# Creative Library
+# </h1>
+
+# <p class="ca-subtitle">
+# Browse the full creative dataset, filter by brand, category, visual elements, and open any creative to inspect its CTR-related patterns.
+# </p>
+
+# <div style="margin-top:18px;">
+# <span class="ca-chip" style="background:#0009dc;color:#ffffff;">{len(df)} creatives</span>
+# <span class="ca-chip" style="background:#aef33e;color:#080808;">AI-tagged</span>
+# <span class="ca-chip" style="background:#080808;color:#ffffff;">CTR data</span>
+# <span class="ca-chip" style="background:#ff7cf5;color:#080808;">creative breakdowns</span>
+# </div>
+# </div>
+
+# <div class="ca-card ca-soft-blue" style="padding:22px 22px;min-height:190px;">
+# <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#0009dc;"></div>
+# <div style="position:absolute;top:-42px;right:-42px;width:130px;height:130px;background:#0009dc;border-radius:50%;opacity:0.14;"></div>
+# <div style="position:absolute;bottom:-48px;left:-48px;width:150px;height:150px;background:#aef33e;border-radius:50%;opacity:0.16;"></div>
+
+# <div style="position:relative;z-index:1;">
+# <div style="font-size:12px;color:#0009dc;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:14px;font-weight:600;">
+# Library workflow
+# </div>
+
+# <div style="font-size:14px;color:rgba(8,8,8,0.78);line-height:1.9;">
+# <span style="color:#0009dc;font-weight:650;">01</span> · Filter the creative database<br>
+# <span style="color:#0009dc;font-weight:650;">02</span> · Compare CTR and impressions<br>
+# <span style="color:#0009dc;font-weight:650;">03</span> · Open creative breakdowns<br>
+# <span style="color:#0009dc;font-weight:650;">04</span> · Explore tags and scenarios
+# </div>
+
+# <div style="height:1px;background:rgba(0,9,220,0.10);margin:16px 0 13px 0;"></div>
+
+# <div style="font-size:12px;color:rgba(8,8,8,0.56);line-height:1.5;">
+# Designed for browsing the dataset before deep-diving into a specific creative.
+# </div>
+# </div>
+# </div>
+
+# </div>
+# </div>
+# """, unsafe_allow_html=True)
 
 # === MODE: CREATIVE DETAIL ===
 if st.session_state.selected_creative is not None:
@@ -959,15 +1425,104 @@ if st.session_state.selected_creative is not None:
         st.session_state.selected_creative = None
         st.rerun()
 
+    st.markdown("""
+<div style="margin:22px 0 28px 0;">
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px;">
+Creative detail
+</div>
+<div style="font-size:34px;font-weight:650;color:#080808;margin-bottom:8px;letter-spacing:-0.8px;">
+Creative breakdown
+</div>
+<div style="font-size:15px;color:rgba(8,8,8,0.62);max-width:760px;line-height:1.55;">
+Inspect the selected creative, its actual CTR, visual tags, category context, and scenario testing options.
+</div>
+</div>
+""", unsafe_allow_html=True)
+
     render_library_creative(st.session_state.selected_creative)
 
 # === MODE: GALLERY ===
 else:
     # ============================================================
+    # UI: Page hero
+    # ============================================================
+    st.markdown(f"""
+<div style="margin:24px 0 28px 0;padding:28px 30px;border-radius:26px;background:radial-gradient(circle at 8% 18%, rgba(174,243,62,0.24), transparent 28%),radial-gradient(circle at 92% 12%, rgba(255,124,245,0.12), transparent 28%),linear-gradient(135deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;">
+<div style="display:grid;grid-template-columns:1.25fr 0.75fr;gap:28px;align-items:center;">
+
+<div>
+<div style="display:inline-flex;gap:8px;align-items:center;padding:7px 12px;border-radius:999px;background:#ffffff;border:1px solid #eeeeee;font-size:12px;color:rgba(8,8,8,0.58);margin-bottom:16px;">
+<span style="width:7px;height:7px;border-radius:50%;background:#aef33e;display:inline-block;"></span>
+Creative database
+</div>
+
+<div class="ca-kicker">
+Explore tagged creatives
+</div>
+
+<h1 class="ca-title">
+Creative Library
+</h1>
+
+<p class="ca-subtitle">
+Browse the full creative dataset, filter by brand, category, visual elements, and open any creative to inspect its CTR-related patterns.
+</p>
+
+<div style="margin-top:18px;">
+<span class="ca-chip" style="background:#0009dc;color:#ffffff;">{len(df)} creatives</span>
+<span class="ca-chip" style="background:#aef33e;color:#080808;">AI-tagged</span>
+<span class="ca-chip" style="background:#080808;color:#ffffff;">CTR data</span>
+<span class="ca-chip" style="background:#ff7cf5;color:#080808;">creative breakdowns</span>
+</div>
+</div>
+
+<div class="ca-card ca-soft-blue" style="padding:22px 22px;min-height:190px;">
+<div style="position:absolute;top:0;left:0;right:0;height:3px;background:#0009dc;"></div>
+<div style="position:absolute;top:-42px;right:-42px;width:130px;height:130px;background:#0009dc;border-radius:50%;opacity:0.14;"></div>
+<div style="position:absolute;bottom:-48px;left:-48px;width:150px;height:150px;background:#aef33e;border-radius:50%;opacity:0.16;"></div>
+
+<div style="position:relative;z-index:1;">
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:14px;font-weight:600;">
+Library workflow
+</div>
+
+<div style="font-size:14px;color:rgba(8,8,8,0.78);line-height:1.9;">
+<span style="color:#0009dc;font-weight:650;">01</span> · Filter the creative database<br>
+<span style="color:#0009dc;font-weight:650;">02</span> · Compare CTR and impressions<br>
+<span style="color:#0009dc;font-weight:650;">03</span> · Open creative breakdowns<br>
+<span style="color:#0009dc;font-weight:650;">04</span> · Explore tags and scenarios
+</div>
+
+<div style="height:1px;background:rgba(0,9,220,0.10);margin:16px 0 13px 0;"></div>
+
+<div style="font-size:12px;color:rgba(8,8,8,0.56);line-height:1.5;">
+Designed for browsing the dataset before deep-diving into a specific creative.
+</div>
+</div>
+</div>
+
+</div>
+</div>
+""", unsafe_allow_html=True)
+
+    # ============================================================
     # Sidebar filters
     # ============================================================
     with st.sidebar:
-        st.markdown("### Filters")
+        with st.sidebar:
+            st.markdown("""
+<div style="margin:4px 0 18px 0;">
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:6px;">
+Library controls
+</div>
+<div style="font-size:22px;font-weight:650;color:#080808;letter-spacing:-0.4px;">
+Filters
+</div>
+<div style="font-size:13px;color:rgba(8,8,8,0.56);line-height:1.45;margin-top:6px;">
+Narrow the creative dataset by brand, category, status, and visual elements.
+</div>
+</div>
+""", unsafe_allow_html=True)
 
         # Brand
         all_brands = ["All"] + sorted(df["brand"].dropna().unique().tolist())
@@ -977,7 +1532,7 @@ else:
         all_years = ["All"] + sorted(df["year"].dropna().unique().tolist())
         selected_year = st.selectbox("Year", all_years)
 
-        st.divider()
+        st.markdown('<div style="height:1px;background:#eeeeee;margin:18px 0;"></div>', unsafe_allow_html=True)
 
 
         # Filter by type
@@ -990,7 +1545,7 @@ else:
         drink_types = ["All"] + sorted(df["drink_type"].dropna().unique().tolist())
         selected_drink = st.selectbox("Drink type", drink_types)
 
-        st.divider()
+        st.markdown('<div style="height:1px;background:#eeeeee;margin:18px 0;"></div>', unsafe_allow_html=True)
 
         # Status filter (anomaly)
         status_filter = st.selectbox(
@@ -999,19 +1554,41 @@ else:
             help="Hidden gems — CTR above creatives with similar tags. Underperformers — CTR below."
         )
 
-        st.divider()
+        st.markdown('<div style="height:1px;background:#eeeeee;margin:18px 0;"></div>', unsafe_allow_html=True)
 
         # Binary filters
-        st.markdown("**Must have**")
+        st.markdown("""
+<div style="margin:2px 0 10px 0;">
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px;">
+Must have
+</div>
+<div style="font-size:13px;color:rgba(8,8,8,0.56);line-height:1.45;">
+Require specific visual tags.
+</div>
+</div>
+""", unsafe_allow_html=True)
+
         must_have = []
         for feat in BINARY_FEATURES:
-            if st.checkbox(feat.replace("_", " "), key=f"mh_{feat}"):
+            if st.checkbox(display_name(feat), key=f"mh_{feat}"):
                 must_have.append(feat)
 
-        st.divider()
+        st.markdown('<div style="height:1px;background:#eeeeee;margin:18px 0;"></div>', unsafe_allow_html=True)
 
         # Sort
-        sort_by = st.selectbox("Sort by", ["CTR (descending)", "CTR (ascending)", "Impressions"])
+        sort_by = st.selectbox("Sort by", ["CTR (descending)", "CTR (ascending)", "Impressions (descending)"])
+
+        st.markdown("""
+<div style="height:1px;background:#eeeeee;margin:18px 0;"></div>
+<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:16px;padding:14px 14px;">
+<div style="font-size:12px;color:#0009dc;letter-spacing:1.1px;text-transform:uppercase;margin-bottom:6px;">
+Tip
+</div>
+<div style="font-size:13px;color:rgba(8,8,8,0.62);line-height:1.5;">
+Use <b style="color:#080808;">Status</b> to find hidden gems or underperformers, then open a creative for full tag breakdown.
+</div>
+</div>
+""", unsafe_allow_html=True)
 
     # ============================================================
     # Apply filters
@@ -1068,21 +1645,19 @@ else:
 
     with st.expander("ℹ️ How to use the library"):
         st.markdown("""
-        Browse all creatives in the database, filter by brand, year, visual elements,
-        and creative status (hidden gems / underperformers).
-        
-        **Filters:**
-        
-        - **Brand & Year** — narrow down to a specific brand or time period
-        - **Main object / Food type / Drink type** — filter by what's the primary subject of the creative
-        - **Status** — find anomalies: creatives that perform unusually well or poorly
-          compared to others with similar tags
-        - **Must have** — require specific visual elements (logo, CTA, discount, etc.)
-        - **Sort by** — order results by CTR or impressions
-        
-        Click **"Open"** on any creative to see its full breakdown — tags, correlations,
-        tag combinations, and whether it's a hidden gem or underperformer.
-        """)
+    Browse all creatives in the database, filter by brand, year, visual elements,
+    and creative status.
+
+    **Filters:**
+
+    - **Brand & Year** — narrow down to a specific brand or time period
+    - **Main object / Food type / Drink type** — filter by the primary subject of the creative
+    - **Status** — find hidden gems or underperformers
+    - **Must have** — require specific visual elements such as logo, CTA, discount, etc.
+    - **Sort by** — order results by CTR or impressions
+
+    Click **Open** on any creative to see its full breakdown.
+    """)
 
     if len(filtered) == 0:
         st.info("Nothing found — try loosening the filters")
@@ -1146,37 +1721,56 @@ else:
                     image_path = os.path.join(IMAGES_DIR, item["filename"])
                     data_url = encode_image(image_path)
 
+                    median_ctr = df["ctr"].median()
+                    ctr_color = "#1D9E75" if item["ctr"] > median_ctr else "#E24B4A"
+                    ctr_label = "above median" if item["ctr"] > median_ctr else "below median"
+
+                    brand_label = item.get("brand", "—")
+                    year_label = item.get("year", "—")
+                    main_object = str(item.get("main_object", "—")).replace("_", " ")
+
+                    # Image
                     if data_url:
                         st.markdown(
-                            '<div style="aspect-ratio:1;border-radius:8px;overflow:hidden;background:#fff;'
-                            'display:flex;align-items:center;justify-content:center;">'
+                            f'<div style="aspect-ratio:1;border-radius:18px 18px 0 0;overflow:hidden;background:#ffffff;'
+                            f'border:1px solid #eeeeee;border-bottom:none;display:flex;align-items:center;justify-content:center;">'
                             f'<img src="{data_url}" style="max-width:100%;max-height:100%;object-fit:contain;display:block;"/>'
-                            '</div>',
+                            f'</div>',
                             unsafe_allow_html=True
                         )
                     else:
                         st.markdown(
-                            '<div style="aspect-ratio:1;border-radius:8px;background:#fff;'
-                            'display:flex;align-items:center;justify-content:center;color:#bbb;font-size:12px;">'
-                            'no image</div>',
+                            '<div style="aspect-ratio:1;border-radius:18px 18px 0 0;background:#ffffff;'
+                            'border:1px solid #eeeeee;border-bottom:none;display:flex;align-items:center;justify-content:center;'
+                            'color:rgba(8,8,8,0.38);font-size:12px;">no image</div>',
                             unsafe_allow_html=True
                         )
 
-                    # CTR badge
-                    ctr_color = "#1D9E75" if item["ctr"] > df["ctr"].median() else "#666"
-                    st.markdown(f"""
-                    <div style="font-size:18px;font-weight:600;color:{ctr_color};margin-top:4px;">
-                        {item['ctr']:.2f}%
-                    </div>
-                    <div style="font-size:11px;color:#888;">
-                        {item['main_object']} · {item['impressions']:,.0f} impressions
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Info card
+                    st.markdown(
+                        f'<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);'
+                        f'border:1px solid #eeeeee;border-top:3px solid {ctr_color};'
+                        f'border-radius:0 0 18px 18px;padding:13px 13px 14px 13px;margin-bottom:10px;">'
+                        f'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
+                        f'<div>'
+                        f'<div style="font-size:22px;font-weight:700;color:{ctr_color};line-height:1;">{item["ctr"]:.2f}%</div>'
+                        f'<div style="font-size:11px;color:rgba(8,8,8,0.46);margin-top:4px;">CTR · {ctr_label}</div>'
+                        f'</div>'
+                        f'<div style="text-align:right;">'
+                        f'<div style="font-size:11px;color:rgba(8,8,8,0.46);margin-bottom:3px;">impressions</div>'
+                        f'<div style="font-size:13px;font-weight:650;color:#080808;">{item["impressions"]:,.0f}</div>'
+                        f'</div>'
+                        f'</div>'
+                        f'<div style="height:1px;background:#eeeeee;margin:12px 0 10px 0;"></div>'
+                        f'<div style="font-size:12px;color:rgba(8,8,8,0.62);line-height:1.45;min-height:34px;">'
+                        f'<b style="color:#080808;">{brand_label}</b> · {year_label}<br>{main_object}'
+                        f'</div>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
 
-                    # Open button
-                    real_idx = filtered.index.get_loc(item.name) + start
                     df_idx = item.name
-                    if st.button("Open", key=f"open_{df_idx}", width='stretch'):
+                    if st.button("Open", key=f"open_{df_idx}", width="stretch"):
                         st.session_state.selected_creative = df_idx
                         st.rerun()
 
