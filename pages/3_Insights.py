@@ -346,7 +346,7 @@ brand_min_ctr = df_brand["ctr"].min()
 brand_count = len(df_brand)
 
 industry_avg_ctr = df_all["ctr"].mean()
-ctr_diff = brand_avg_ctr - industry_avg_ctr
+ctr_diff = round(brand_avg_ctr, 2) - round(industry_avg_ctr, 2)
 
 # Comparison with average
 diff_color = "#1D9E75" if ctr_diff > 0 else "#E24B4A"
@@ -918,8 +918,6 @@ def render_anomaly_card(row, kind):
         arrows = "↓↓" if abs_r >= 0.30 else "↓"
         arrow_inline = f'<span style="color:#E24B4A;font-weight:750;font-size:20px;letter-spacing:-3px;">{arrows}</span>'
 
-    residual_sign = "+" if residual > 0 else ""
-
     if data_url:
         st.markdown(
             f'<div style="aspect-ratio:1;border-radius:18px 18px 0 0;overflow:hidden;background:#ffffff;'
@@ -955,10 +953,7 @@ def render_anomaly_card(row, kind):
 
         f'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">'
         f'<div style="font-size:12px;color:rgba(8,8,8,0.56);">{comparison_label}</div>'
-        f'<div style="display:flex;align-items:center;gap:6px;">'
-        f'{arrow_inline}'
-        f'<span style="font-size:13px;font-weight:650;color:{color};">{residual_sign}{residual:.2f}%</span>'
-        f'</div>'
+        f'<div>{arrow_inline}</div>'
         f'</div>'
 
         f'<div style="font-size:12px;color:rgba(8,8,8,0.62);line-height:1.45;min-height:48px;">'
@@ -1034,20 +1029,28 @@ spacer()
 
 with st.expander("ℹ️ How this is calculated"):
     st.markdown("""
-    For each creative we calculate the **residual** = actual CTR − expected CTR for creatives
-    with the same tag combination. The expected CTR comes from the LightGBM model trained on
-    the full database.
+    For each creative we compare its **actual CTR** with the **expected CTR** for creatives
+    with a similar tag combination. The expected CTR comes from the LightGBM model trained
+    on the full database.
     
-    A large positive residual means: this creative performs better than other creatives with
-    similar visual elements — something is working **beyond** the tags we can see.
-    A large negative residual means: it performs worse than similar creatives — likely something
-    in execution (photo quality, copy, layout) drags it down.
+    When a creative performs noticeably **better** than other creatives with similar visual
+    elements — something is working **beyond** the tags we can see (copy, emotion, composition,
+    offer clarity, execution quality).
     
-    - **💎 Hidden gems** — top 3 by residual (CTR above similar creatives)
-    - **📉 Underperformers** — bottom 3 by residual (CTR below similar creatives)
+    When a creative performs noticeably **worse** than similar ones — likely something in
+    execution drags it down (photo quality, layout, readability, CTA friction).
+    
+    - **💎 Hidden gems** — creatives consistently performing above what their tags would suggest
+    - **📉 Underperformers** — creatives consistently performing below what their tags would suggest
+    
+    Arrow indicators show direction and strength of the deviation:
+    
+    - ↑↑ / ↓↓ — strong deviation from expected
+    - ↑ / ↓ — moderate deviation
+    - — — close to expected
     
     These are signals to investigate manually — what makes the gems special that we can't
-    capture with tags? What's broken in the underperformers?
+    capture with tags, and what's broken in the underperformers?
     """)
 
 # ============================================================
@@ -1125,8 +1128,8 @@ Brand position in industry
     first_ind_ctr = df[df["year"] == first_year_int]["ctr"].mean()
     last_ind_ctr = df[df["year"] == last_year_int]["ctr"].mean()
     
-    first_diff = first_brand_ctr - first_ind_ctr
-    last_diff = last_brand_ctr - last_ind_ctr
+    first_diff = round(first_brand_ctr, 2) - round(first_ind_ctr, 2)
+    last_diff = round(last_brand_ctr, 2) - round(last_ind_ctr, 2)
     
     def diff_html(diff):
         if diff > 0:
@@ -1256,11 +1259,7 @@ Which tags became more or less correlated with CTR. Arrows show the direction of
 </div>
 </div>
 """, unsafe_allow_html=True)
-    # st.markdown(
-    #     "<div style='font-size:13px;color:#888;margin-bottom:12px;'>"
-    #     "Which tags became more or less correlated with CTR. Arrows show the direction of change.</div>",
-    #     unsafe_allow_html=True,
-    # )
+    
     
     shap_with_year = shap_brand_all.merge(
         df_brand_all_years[["filename", "year"]], on="filename", how="left"
