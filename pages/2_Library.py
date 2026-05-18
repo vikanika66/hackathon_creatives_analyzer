@@ -1706,7 +1706,7 @@ Use <b style="color:#080808;">Status</b> to find hidden gems or underperformers,
                 if st.button("Next →", disabled=(page >= total_pages - 1), use_container_width=True, key="page_next"):
                     st.session_state[page_state_key] = page + 1
                     st.rerun()
-        page_data = filtered.iloc[start:end]
+        # page_data = filtered.iloc[start:end]
 
         # ============================================================
         # Gallery — 4 columns

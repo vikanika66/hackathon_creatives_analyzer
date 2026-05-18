@@ -466,21 +466,46 @@ def build_tag_effects_waterfall(effects, base_ctr):
 
 
 def find_similar_creatives(active_tags, food_type=None, drink_type=None, top_n=20):
-    """Find similar creatives, optionally filtered by category."""
+    """
+    Category-priority cascade for similar creatives:
+      1. Same brand + same category — ideal
+      2. If brand has < 5 in this category — expand to OTHER brands in same category
+      3. If still < 5 — fall back to whole brand portfolio
+    
+    Returns (similarities, scope):
+      similarities: list of (idx, score) where idx refers to df_full
+      scope: "brand-category" | "category-expanded" | "brand-portfolio" | "brand-only"
+    """
+    # Feature importance — global signal across the whole database
     feature_importance = {
-        c: np.abs(shap_df[c]).mean() for c in feature_cols if c in shap_df.columns
+        c: np.abs(shap_df_full[c]).mean() for c in feature_cols if c in shap_df_full.columns
     }
 
-    # Filter database by category
-    candidates = df.copy()
+    has_category = (food_type and food_type != "none") or (drink_type and drink_type != "none")
+
+    # Step 1: same brand + same category
+    candidates = df.copy()  # df = brand-filtered here
     if food_type and food_type != "none":
         candidates = candidates[candidates["food_type"] == food_type]
     elif drink_type and drink_type != "none":
         candidates = candidates[candidates["drink_type"] == drink_type]
 
-    # If too few creatives in category — expand to whole database
-    if len(candidates) < 10:
+    scope = "brand-category" if has_category else "brand-only"
+
+    # Step 2: expand to other brands in the same category if too few
+    if len(candidates) < 5 and has_category:
+        fallback = df_full.copy()
+        if food_type and food_type != "none":
+            fallback = fallback[fallback["food_type"] == food_type]
+        elif drink_type and drink_type != "none":
+            fallback = fallback[fallback["drink_type"] == drink_type]
+        candidates = pd.concat([candidates, fallback]).drop_duplicates(subset=["filename"])
+        scope = "category-expanded"
+
+    # Step 3: last fallback — whole brand portfolio
+    if len(candidates) < 5:
         candidates = df.copy()
+        scope = "brand-portfolio"
 
     similarities = []
     for idx, row in candidates.iterrows():
@@ -499,40 +524,57 @@ def find_similar_creatives(active_tags, food_type=None, drink_type=None, top_n=2
         similarities.append((idx, sim))
 
     similarities.sort(key=lambda x: x[1], reverse=True)
-    return similarities[:top_n]
+    return similarities[:top_n], scope
 
 
 def get_segment_context(tags):
-    """Returns insights about creative's category and base CTR."""
+    """Returns insights about creative's category and base CTR.
+    Each insight has status='ok' (>=5 creatives) or status='insufficient' (<5)."""
     base_ctr = df["ctr"].mean()
     insights = []
 
     food = tags.get("food_type", "none")
     if food != "none":
         segment_df = df[df["food_type"] == food]
-        if len(segment_df) >= 5:
+        count = len(segment_df)
+        if count >= 5:
             seg_ctr = segment_df["ctr"].mean()
-            diff = seg_ctr - base_ctr
             insights.append({
                 "label": food.replace("_", " "),
                 "category": "food type",
                 "ctr": seg_ctr,
-                "diff": diff,
-                "count": len(segment_df),
+                "diff": seg_ctr - base_ctr,
+                "count": count,
+                "status": "ok",
+            })
+        else:
+            insights.append({
+                "label": food.replace("_", " "),
+                "category": "food type",
+                "count": count,
+                "status": "insufficient",
             })
 
     drink = tags.get("drink_type", "none")
     if drink != "none":
         segment_df = df[df["drink_type"] == drink]
-        if len(segment_df) >= 5:
+        count = len(segment_df)
+        if count >= 5:
             seg_ctr = segment_df["ctr"].mean()
-            diff = seg_ctr - base_ctr
             insights.append({
                 "label": drink.replace("_", " "),
                 "category": "drink type",
                 "ctr": seg_ctr,
-                "diff": diff,
-                "count": len(segment_df),
+                "diff": seg_ctr - base_ctr,
+                "count": count,
+                "status": "ok",
+            })
+        else:
+            insights.append({
+                "label": drink.replace("_", " "),
+                "category": "drink type",
+                "count": count,
+                "status": "insufficient",
             })
 
     return insights, base_ctr
@@ -573,7 +615,6 @@ def calculate_active_combinations(active_tags, food_type=None, drink_type=None, 
         active_pairs[active_pairs["interaction"] > 0]
         .nlargest(top_n_each, "interaction")
     )
-
     negative = (
         active_pairs[active_pairs["interaction"] < 0]
         .nsmallest(top_n_each, "interaction")
@@ -657,7 +698,7 @@ def render_block_creative_card(entry, selected_brand):
     tags = entry["tags"]
     active_tags = get_active_tags(tags)
 
-    similar = find_similar_creatives(
+    similar, scope = find_similar_creatives(
         active_tags,
         food_type=tags.get("food_type"),
         drink_type=tags.get("drink_type"),
@@ -665,7 +706,7 @@ def render_block_creative_card(entry, selected_brand):
     )
 
     similar_indices = [idx for idx, _ in similar]
-    similar_ctrs = df.loc[similar_indices, "ctr"]
+    similar_ctrs = df_full.loc[similar_indices, "ctr"]
     ctr_min = similar_ctrs.min()
     ctr_max = similar_ctrs.max()
     ctr_median = similar_ctrs.median()
@@ -727,9 +768,23 @@ The uploaded creative is tagged, compared with similar brand creatives, and tran
             drink.replace("_", " ") if drink != "none" else ""
         )
 
-        caption_text = f"CTR range across similar creatives of <b>{selected_brand}</b>"
-        if category_label:
-            caption_text += f" in the <b>{category_label}</b> category"
+        if scope == "brand-category":
+            caption_text = (
+                f"CTR range across similar creatives of <b>{selected_brand}</b> "
+                f"in the <b>{category_label}</b> category"
+            )
+        elif scope == "category-expanded":
+            caption_text = (
+                f"CTR range across similar creatives in the <b>{category_label}</b> category "
+                f"(expanded to other brands — {selected_brand} has few examples here)"
+            )
+        elif scope == "brand-portfolio":
+            caption_text = (
+                f"CTR range across all creatives of <b>{selected_brand}</b> "
+                f"(category had too few examples to filter)"
+            )
+        else:
+            caption_text = f"CTR range across creatives of <b>{selected_brand}</b>"
 
         st.markdown(f"""
 <div style="font-size:12px;color:rgba(8,8,8,0.48);line-height:1.5;margin:4px 0 26px 0;">
@@ -1105,7 +1160,7 @@ def render_block_similar(similar):
     top_similar = similar[:10]
     creatives = []
     for idx, sim_score in top_similar:
-        row = df.loc[idx]
+        row = df_full.loc[idx]
         creatives.append({"filename": row["filename"], "ctr": row["ctr"], "row": row})
     creatives.sort(key=lambda x: x["ctr"], reverse=True)
     median_ctr = df["ctr"].median()
@@ -1132,7 +1187,7 @@ def render_block_similar(similar):
                 for binary in BINARY_FEATURES:
                     if binary in c["row"].index and c["row"][binary] == True:
                         active.append(binary)
-                feat_imp = {b: np.abs(shap_df[b]).mean() for b in active if b in shap_df.columns}
+                feat_imp = {b: np.abs(shap_df_full[b]).mean() for b in active if b in shap_df_full.columns}
                 top_tags = sorted(active, key=lambda x: feat_imp.get(x, 0), reverse=True)[:3]
                 tag_str = ", ".join(display_name(t) for t in top_tags)
 
@@ -1144,7 +1199,8 @@ def render_block_similar(similar):
 """, unsafe_allow_html=True)
 
 def render_block_segment_context(tags):
-    """Insight block about the segment — how strong this category is for the brand."""
+    """Insight block about the segment — how strong this category is for the brand.
+    Shows either a full comparison card (>=5 creatives) or a disclaimer (<5)."""
     insights, base_ctr = get_segment_context(tags)
 
     if not insights:
@@ -1165,13 +1221,57 @@ How this food or drink category performs compared with the brand average.
 """, unsafe_allow_html=True)
 
     rows_html = ""
+    NEUTRAL_THRESHOLD = 0.09
 
     for ins in insights:
+
+        # ============================================================
+        # Insufficient data — show disclaimer card
+        # ============================================================
+        if ins["status"] == "insufficient":
+            count = ins["count"]
+            if count == 0:
+                verdict = (
+                    f"<b style='color:#080808;'>{selected_brand}</b> has no creatives "
+                    f"in the <b style='color:#080808;'>{ins['label']}</b> category, "
+                    f"so a comparison can't be calculated. The detected category "
+                    f"falls outside this brand's portfolio."
+                )
+            else:
+                creative_word = "creative" if count == 1 else "creatives"
+                verdict = (
+                    f"<b style='color:#080808;'>{selected_brand}</b> has only "
+                    f"<b style='color:#080808;'>{count}</b> {creative_word} in the "
+                    f"<b style='color:#080808;'>{ins['label']}</b> category. "
+                    f"A minimum of <b style='color:#080808;'>5</b> is needed for a reliable "
+                    f"comparison, so the average is not shown."
+                )
+
+            rows_html += f"""
+<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:26px 26px;margin-bottom:14px;position:relative;overflow:hidden;">
+<div style="position:absolute;top:0;left:0;right:0;height:4px;background:rgba(8,8,8,0.34);"></div>
+
+<div style="font-size:22px;font-weight:650;color:#080808;text-transform:capitalize;margin-bottom:8px;">
+{ins['label']}
+</div>
+
+<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(8,8,8,0.06);color:rgba(8,8,8,0.58);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:650;margin-bottom:14px;">
+<span style="width:7px;height:7px;border-radius:50%;background:rgba(8,8,8,0.42);display:inline-block;"></span>
+Not enough data
+</div>
+
+<div style="font-size:14px;color:rgba(8,8,8,0.66);line-height:1.65;max-width:760px;">
+{verdict}
+</div>
+</div>
+"""
+            continue
+
+        # ============================================================
+        # OK — full comparison card (original logic)
+        # ============================================================
         diff = ins["diff"]
         abs_diff = abs(diff)
-        is_better = diff > 0
-
-        NEUTRAL_THRESHOLD = 0.09
 
         if diff > 0:
             accent_color = "#1D9E75"
@@ -1296,7 +1396,9 @@ def render_analysis(entry, selected_brand):
         Positive difference (green) means creatives of this category tend to perform better
         than the brand average. Negative (red) means they tend to underperform.
         
-        Only categories with at least 5 creatives in the brand portfolio are shown.
+        A minimum of **5 creatives** in the category is required to calculate a reliable average.
+        If the brand has fewer than 5, a disclaimer card is shown instead of the comparison —
+        this avoids drawing conclusions from too small a sample.
         """)
     
     divider()
@@ -1360,15 +1462,15 @@ def render_analysis(entry, selected_brand):
     spacer()
     with st.expander("ℹ️ How this is calculated"):
         st.markdown("""
-        We compute the similarity of each brand creative to the uploaded one based on the
-        overlap of their tag sets, weighted by tag importance (average absolute SHAP).
+        Similar creatives use a **category-priority cascade**, so the reference set stays visually relevant:
         
-        If the uploaded creative has a food/drink category, we first look at creatives
-        within the same category. If the category has fewer than 10 creatives, we expand
-        to the whole brand portfolio.
+        1. **Same brand + same category** — the ideal case (same brand, same food/drink type)
+        2. **Other brands in the same category** — added if the brand has fewer than 5 examples in this category, because visual patterns transfer across brands within a category
+        3. **Whole brand portfolio** — last fallback if the category is too rare overall
         
-        The top 10 most similar creatives are shown, sorted by their actual CTR (highest first).
-        Click "Open →" on any card to see its full breakdown in the Library.
+        Similarity is computed as the overlap of tag sets, weighted by each tag's **global** importance (average absolute SHAP across the full database — not per-brand, because we want general visual signals).
+        
+        The top 10 most similar creatives are shown, sorted by their actual CTR (highest first). Click "Open →" on any card to see its full breakdown in the Library.
         """)
 
 
@@ -1499,9 +1601,19 @@ shap_df_filtered = shap_df[shap_df["filename"].isin(filenames)].copy()
 if len(df_filtered) < 30:
     st.warning(f"⚠️ Brand {selected_brand} has only {len(df_filtered)} creatives. Analysis may be unreliable.")
 
+# Save full data for cross-brand similar lookup BEFORE override
+df_full = df.copy()
+shap_df_full = shap_df.copy()
+
 # Override globals for analysis functions
 df = df_filtered
 shap_df = shap_df_filtered
+
+# # Override globals for analysis functions
+# df_all = df.copy()           
+# shap_df_all = shap_df.copy() 
+# df = df_filtered
+# shap_df = shap_df_filtered
 
 st.markdown(f'<div style="font-size:13px;color:rgba(8,8,8,0.55);margin:8px 0 22px 0;">Analysis based on <b>{len(df_filtered)}</b> creatives of <b>{selected_brand}</b></div>', unsafe_allow_html=True)
 

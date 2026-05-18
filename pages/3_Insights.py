@@ -486,8 +486,6 @@ weak_candidates = tag_effects_df[
 
 col_strong, col_weak = st.columns(2, gap="large")
 
-col_strong, col_weak = st.columns(2, gap="large")
-
 with col_strong:
     if len(strong_candidates) == 0:
         strong_body = """
@@ -1258,11 +1256,11 @@ Which tags became more or less correlated with CTR. Arrows show the direction of
 </div>
 </div>
 """, unsafe_allow_html=True)
-    st.markdown(
-        "<div style='font-size:13px;color:#888;margin-bottom:12px;'>"
-        "Which tags became more or less correlated with CTR. Arrows show the direction of change.</div>",
-        unsafe_allow_html=True,
-    )
+    # st.markdown(
+    #     "<div style='font-size:13px;color:#888;margin-bottom:12px;'>"
+    #     "Which tags became more or less correlated with CTR. Arrows show the direction of change.</div>",
+    #     unsafe_allow_html=True,
+    # )
     
     shap_with_year = shap_brand_all.merge(
         df_brand_all_years[["filename", "year"]], on="filename", how="left"
