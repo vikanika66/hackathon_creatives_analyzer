@@ -547,7 +547,7 @@ Which detected tags appear more often in creatives with high or low CTR. <b>â†‘â
     
     if not categorized:
         st.markdown("""
-<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:22px 24px;position:relative;overflow:hidden;">
+<div style="background:#ffffff;border:1px solid #eeeeee;border-radius:22px;padding:22px 24px;position:relative;overflow:hidden;">
 <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#080808;"></div>
 <div style="font-size:14px;color:rgba(8,8,8,0.58);">
 No significant effects found for this creative.
@@ -557,16 +557,42 @@ No significant effects found for this creative.
         return
     
     rows_html = ""
+
     for tag, direction, strength in categorized:
+        if direction == "up":
+            row_color = "#1D9E75"
+            row_bg = "rgba(29,158,117,0.06)"
+            label = "Positive signal"
+        elif direction == "down":
+            row_color = "#E24B4A"
+            row_bg = "rgba(226,75,74,0.06)"
+            label = "Negative signal"
+        else:
+            row_color = "rgba(8,8,8,0.38)"
+            row_bg = "rgba(8,8,8,0.04)"
+            label = "Neutral signal"
+
         rows_html += f"""
-<div style="padding:16px 0;border-bottom:1px solid #eeeeee;display:flex;align-items:center;gap:16px;">
-<span style="width:72px;text-align:center;">{arrow_symbol(direction, strength)}</span>
-<span style="flex:1;font-size:14px;color:rgba(8,8,8,0.72);font-weight:500;">{display_name(tag)}</span>
+<div style="padding:16px 0;border-bottom:1px solid #eeeeee;display:grid;grid-template-columns:80px 1fr 140px;gap:14px;align-items:center;">
+<div style="text-align:center;background:{row_bg};border-radius:14px;padding:8px 0;">
+{arrow_symbol(direction, strength)}
+</div>
+
+<div style="font-size:14px;color:rgba(8,8,8,0.74);font-weight:500;">
+<b style="color:#080808;">{display_name(tag)}</b>
+</div>
+
+<div style="text-align:right;">
+<span style="display:inline-flex;align-items:center;gap:6px;background:{row_bg};color:{row_color};border-radius:999px;padding:6px 10px;font-size:11px;font-weight:650;">
+<span style="width:6px;height:6px;border-radius:50%;background:{row_color};display:inline-block;"></span>
+{label}
+</span>
+</div>
 </div>
 """
     
     st.markdown(f"""
-<div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:22px 26px;position:relative;overflow:hidden;">
+<div style="background:linear-gradient(180deg,#ffffff 0%,#fbfbfb 100%);border:1px solid #eeeeee;border-radius:22px;padding:22px 26px;position:relative;overflow:hidden;">
 <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#0009dc;"></div>
 {rows_html}
 </div>
