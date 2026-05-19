@@ -147,6 +147,27 @@ LIBRARY_CSS = """
     div[data-testid="stExpander"] li {
         margin-bottom: 6px !important;
     }
+        /* Upload-style tag colors */
+    .tag-categorical-active {
+        background: #aef33e !important;
+        color: #080808 !important;
+        border: 1px solid #aef33e !important;
+        font-weight: 650 !important;
+    }
+
+    .tag-binary-active {
+        background: #0009dc !important;
+        color: #ffffff !important;
+        border: 1px solid #0009dc !important;
+        font-weight: 650 !important;
+    }
+
+    .tag-absent {
+        background: #ffffff !important;
+        color: rgba(8,8,8,0.38) !important;
+        border: 1px solid #d9d9d9 !important;
+        font-weight: 500 !important;
+    }
 </style>
 """
 
@@ -274,6 +295,88 @@ def display_name(tag):
     for prefix in ["food type ", "drink type ", "main object ", "person who ", "person emotion ", "person action "]:
         clean = clean.replace(prefix, "")
     return clean
+
+
+def render_library_tag_chips(tags):
+    """Smaller upload-style chips for library detail view."""
+    
+    category_chips = []
+    visual_active = []
+    visual_inactive = []
+
+    # --- Categories: only the same meaningful ones as on Upload ---
+    main_object = tags.get("main_object", "none")
+    food_type = tags.get("food_type", "none")
+    drink_type = tags.get("drink_type", "none")
+
+    if main_object != "none":
+        category_chips.append(
+            f'<span style="display:inline-block;background:#aef33e;color:#080808;'
+            f'border:1px solid #aef33e;border-radius:999px;padding:6px 12px;'
+            f'font-size:12.5px;font-weight:650;margin:0 8px 8px 0;">'
+            f'main object: {display_name(main_object)}</span>'
+        )
+
+    if food_type != "none":
+        category_chips.append(
+            f'<span style="display:inline-block;background:#aef33e;color:#080808;'
+            f'border:1px solid #aef33e;border-radius:999px;padding:6px 12px;'
+            f'font-size:12.5px;font-weight:650;margin:0 8px 8px 0;">'
+            f'food type: {display_name(food_type)}</span>'
+        )
+
+    if drink_type != "none":
+        category_chips.append(
+            f'<span style="display:inline-block;background:#aef33e;color:#080808;'
+            f'border:1px solid #aef33e;border-radius:999px;padding:6px 12px;'
+            f'font-size:12.5px;font-weight:650;margin:0 8px 8px 0;">'
+            f'drink type: {display_name(drink_type)}</span>'
+        )
+
+    # --- Visual tags: active blue, inactive crossed-out gray ---
+    for feat in BINARY_FEATURES:
+        label = display_name(feat)
+        is_active = bool(tags.get(feat, False))
+
+        if is_active:
+            visual_active.append(
+                f'<span style="display:inline-block;background:#0009dc;color:#ffffff;'
+                f'border:1px solid #0009dc;border-radius:999px;padding:6px 12px;'
+                f'font-size:12.5px;font-weight:650;margin:0 8px 8px 0;">'
+                f'{label}</span>'
+            )
+        else:
+            visual_inactive.append(
+                f'<span style="display:inline-block;background:#ffffff;color:rgba(8,8,8,0.34);'
+                f'border:1px solid #d6d6d6;border-radius:999px;padding:6px 12px;'
+                f'font-size:12.5px;font-weight:500;text-decoration:line-through;'
+                f'margin:0 8px 8px 0;">'
+                f'{label}</span>'
+            )
+
+    html = ""
+
+    if category_chips:
+        html += """
+        <div style="font-size:12px;color:#0009dc;letter-spacing:1.2px;text-transform:uppercase;margin:0 0 10px 0;">
+            Categories
+        </div>
+        <div style="margin-bottom:22px;">
+        """
+        html += "".join(category_chips)
+        html += "</div>"
+
+    html += """
+    <div style="font-size:12px;color:#0009dc;letter-spacing:1.2px;text-transform:uppercase;margin:0 0 10px 0;">
+        Visual tags
+    </div>
+    <div style="margin-bottom:0;">
+    """
+    html += "".join(visual_active)
+    html += "".join(visual_inactive)
+    html += "</div>"
+
+    return html
 
 
 def categorize_strength(value, strong_threshold, weak_threshold):
@@ -1349,7 +1452,7 @@ def render_library_creative(idx):
 
         st.markdown(f"""
 <div style="background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:22px;padding:24px 24px;position:relative;overflow:hidden;">
-<div style="position:absolute;top:0;left:0;right:0;height:4px;background:{diff_color};"></div>
+<div style="position:absolute;top:0;left:0;right:0;height:4px;background:#0009dc;"></div>
 
 <div style="display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-bottom:20px;">
 <div>
@@ -1390,13 +1493,12 @@ Actual CTR
 <div style="font-size:12px;color:rgba(8,8,8,0.52);margin-top:4px;text-transform:capitalize;">{category_type}</div>
 </div>
 
-<div style="font-size:12px;color:#0009dc;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px;">
-Creative tags
-</div>
+
 </div>
 """, unsafe_allow_html=True)
 
-        st.markdown(render_tag_chips(tags), unsafe_allow_html=True)
+        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
+        st.markdown(render_library_tag_chips(tags), unsafe_allow_html=True)
     
     # === Active tags for analysis ===
     active_tags = get_active_tags(tags)
