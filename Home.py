@@ -33,6 +33,101 @@ st.markdown("""
         color: white !important;
         box-shadow: 0 0 0 0.2rem rgba(0, 9, 220, 0.25) !important;
     }
+
+    /* Visual tags explanation card */
+    .visual-tags-card {
+        background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(248,248,252,0.98));
+        border: 1px solid rgba(0,0,0,0.08);
+        border-radius: 24px;
+        padding: 28px 30px 24px 30px;
+        margin: 26px 0 28px 0;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+    }
+
+    .visual-tags-eyebrow {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #0009dc;
+        background: rgba(0, 9, 220, 0.08);
+        border: 1px solid rgba(0, 9, 220, 0.14);
+        border-radius: 999px;
+        padding: 7px 12px;
+        margin-bottom: 14px;
+    }
+
+    .visual-tags-title {
+        font-size: 34px;
+        font-weight: 800;
+        line-height: 1.1;
+        color: #1f2430;
+        margin-bottom: 12px;
+    }
+
+    .visual-tags-text {
+        font-size: 18px;
+        line-height: 1.65;
+        color: #3d4451;
+        margin-bottom: 14px;
+        max-width: 920px;
+    }
+
+    .visual-tags-text strong {
+        color: #111827;
+    }
+
+    .visual-tags-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+    }
+
+    .visual-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 10px 14px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1;
+        background: #ffffff;
+        border: 1px solid rgba(0,0,0,0.08);
+        color: #20242d;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+
+    .visual-chip.highlight {
+        background: #b7f34a;
+        color: #111111;
+        border-color: rgba(0,0,0,0.06);
+    }
+
+    .visual-chip.blue {
+        background: #0009dc;
+        color: white;
+        border-color: transparent;
+    }
+
+    .visual-chip.dark {
+        background: #111111;
+        color: white;
+        border-color: transparent;
+    }
+
+    .visual-tags-note {
+    font-size: 15px;
+    line-height: 1.55;
+    color: rgba(31, 36, 48, 0.72);
+    background: rgba(174, 243, 62, 0.16);
+    border: 1px solid rgba(174, 243, 62, 0.42);
+    border-radius: 16px;
+    padding: 12px 14px;
+    margin: 14px 0 4px 0;
+    max-width: 920px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -76,6 +171,31 @@ Focused on <b style="color:#080808;background:#aef33e;padding:2px 6px;border-rad
 </div>
 """, unsafe_allow_html=True)
 
+# Hero / intro block above
+
+st.markdown("""
+<div class="visual-tags-card">
+<div class="visual-tags-eyebrow">How the app reads creatives</div>
+<div class="visual-tags-title">What are visual tags?</div>
+<div class="visual-tags-text">Visual tags are <strong>AI-detected creative signals</strong> that describe what appears in an ad and how it is built.</div>
+<div class="visual-tags-text">They turn each creative into <strong>structured data</strong>, so images can be searched, compared, and connected to CTR patterns.</div>
+<div class="visual-tags-note">The current 17-tag taxonomy is optimized for the test dataset. As the creative knowledge base grows, the tag set can expand with new categories, visual patterns, and brand-specific signals.</div>
+<div class="visual-tags-chips">
+<span class="visual-chip blue">product type</span>
+<span class="visual-chip highlight">people</span>
+<span class="visual-chip">colors</span>
+<span class="visual-chip">composition</span>
+<span class="visual-chip dark">CTA</span>
+<span class="visual-chip">logo</span>
+<span class="visual-chip">offer mechanics</span>
+<span class="visual-chip">emotion</span>
+<span class="visual-chip">setting</span>
+<span class="visual-chip">visual style</span>
+</div>
+</div>
+""", unsafe_allow_html=True)
+
+# Dataset snapshot block below
 
 # ============================================================
 # БОЛЬШИЕ ЦИФРЫ
