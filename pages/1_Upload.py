@@ -1699,9 +1699,7 @@ else:
     st.markdown("""
 <div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(180deg,#ffffff 0%,#f9f9f9 100%);border:1px solid #eeeeee;border-radius:999px;padding:8px 12px;font-size:13px;color:rgba(8,8,8,0.58);margin:10px 0 18px 0;">
 <span style="width:7px;height:7px;border-radius:50%;background:#aef33e;display:inline-block;"></span>
-Need a quick test? Use sample creatives from the 
-<a href="https://drive.google.com/drive/folders/1xWNcyCTl94PQMWHhaUhGzE9T7ZrUeYqY" target="_blank" style="color:#0009dc;text-decoration:none;border-bottom:1px solid rgba(0,9,220,0.28);font-weight:650;">Test creatives</a>
-folder.
+Need a quick test? Use sample creatives from the Test creatives folder.
 </div>
 """, unsafe_allow_html=True)
 
