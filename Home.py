@@ -15,17 +15,19 @@ st.markdown(COMMON_CSS, unsafe_allow_html=True)
 
 st.markdown("""
 <style>
-    /* Кастомный цвет для primary-кнопок на главной */
+    /* Primary buttons on Home page */
     .stButton > button[kind="primary"] {
         background-color: #0009dc !important;
         border-color: #0009dc !important;
         color: white !important;
     }
+
     .stButton > button[kind="primary"]:hover {
         background-color: #0007b8 !important;
         border-color: #0007b8 !important;
         color: white !important;
     }
+
     .stButton > button[kind="primary"]:active,
     .stButton > button[kind="primary"]:focus {
         background-color: #0006a3 !important;
@@ -34,14 +36,14 @@ st.markdown("""
         box-shadow: 0 0 0 0.2rem rgba(0, 9, 220, 0.25) !important;
     }
 
-    /* Visual tags explanation card */
+    /* Visual tags section */
     .visual-tags-card {
-        background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(248,248,252,0.98));
-        border: 1px solid rgba(0,0,0,0.08);
-        border-radius: 24px;
-        padding: 28px 30px 24px 30px;
-        margin: 26px 0 28px 0;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        padding: 18px 30px 8px 30px;
+        margin: 36px 0 24px 0;
+        box-shadow: none;
     }
 
     .visual-tags-eyebrow {
@@ -63,7 +65,18 @@ st.markdown("""
         font-weight: 800;
         line-height: 1.1;
         color: #1f2430;
-        margin-bottom: 12px;
+        margin-bottom: 18px;
+        position: relative;
+    }
+
+    .visual-tags-title::after {
+        content: "";
+        display: block;
+        width: 72px;
+        height: 6px;
+        background: #aef33e;
+        border-radius: 999px;
+        margin-top: 12px;
     }
 
     .visual-tags-text {
@@ -78,11 +91,59 @@ st.markdown("""
         color: #111827;
     }
 
+    /* Current setup / MVP scope notes */
+    .visual-tags-details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin: 22px 0 22px 0;
+        max-width: 1100px;
+    }
+
+    .visual-tags-detail {
+        background: rgba(174, 243, 62, 0.08);
+        border: none;
+        border-left: 4px solid #aef33e;
+        border-radius: 0;
+        padding: 10px 0 10px 16px;
+        font-size: 14px;
+        line-height: 1.55;
+        color: rgba(31, 36, 48, 0.78);
+    }
+
+    .visual-tags-detail strong {
+        display: block;
+        color: #111111;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+    }
+
+    /* Real tag taxonomy */
+    .visual-tags-taxonomy {
+        margin-top: 20px;
+    }
+
+    .visual-tags-group {
+        margin-top: 18px;
+    }
+
+    .visual-tags-group-title {
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: rgba(31, 36, 48, 0.56);
+        margin-bottom: 10px;
+    }
+
     .visual-tags-chips {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
-        margin-top: 16px;
+        margin-top: 0;
     }
 
     .visual-chip {
@@ -94,15 +155,15 @@ st.markdown("""
         font-weight: 600;
         line-height: 1;
         background: #ffffff;
-        border: 1px solid rgba(0,0,0,0.08);
+        border: 1px solid rgba(0, 0, 0, 0.08);
         color: #20242d;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
     }
 
     .visual-chip.highlight {
         background: #b7f34a;
         color: #111111;
-        border-color: rgba(0,0,0,0.06);
+        border-color: rgba(0, 0, 0, 0.06);
     }
 
     .visual-chip.blue {
@@ -117,54 +178,24 @@ st.markdown("""
         border-color: transparent;
     }
 
-    .visual-tags-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-    margin: 18px 0 8px 0;
-}
+    @media (max-width: 900px) {
+        .visual-tags-card {
+            padding: 12px 6px 8px 6px;
+        }
 
-.visual-tags-detail {
-    background: rgba(174, 243, 62, 0.11);
-    border: 1px solid rgba(174, 243, 62, 0.34);
-    border-radius: 18px;
-    padding: 14px 16px;
-    font-size: 14px;
-    line-height: 1.55;
-    color: rgba(31, 36, 48, 0.78);
-}
+        .visual-tags-details {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
 
-.visual-tags-detail strong {
-    display: block;
-    color: #111111;
-    font-size: 13px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    margin-bottom: 5px;
-}
+        .visual-tags-title {
+            font-size: 30px;
+        }
 
-@media (max-width: 900px) {
-    .visual-tags-details {
-        grid-template-columns: 1fr;
+        .visual-tags-text {
+            font-size: 16px;
+        }
     }
-}
-
-.visual-tags-taxonomy {
-    margin-top: 18px;
-}
-
-.visual-tags-group {
-    margin-top: 16px;
-}
-
-.visual-tags-group-title {
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgba(31, 36, 48, 0.62);
-    margin-bottom: 10px;
-}
 </style>
 """, unsafe_allow_html=True)
 
