@@ -117,17 +117,54 @@ st.markdown("""
         border-color: transparent;
     }
 
-    .visual-tags-note {
-    font-size: 15px;
+    .visual-tags-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 18px 0 8px 0;
+}
+
+.visual-tags-detail {
+    background: rgba(174, 243, 62, 0.11);
+    border: 1px solid rgba(174, 243, 62, 0.34);
+    border-radius: 18px;
+    padding: 14px 16px;
+    font-size: 14px;
     line-height: 1.55;
-    color: rgba(31, 36, 48, 0.72);
-    background: rgba(174, 243, 62, 0.16);
-    border: 1px solid rgba(174, 243, 62, 0.42);
-    border-radius: 16px;
-    padding: 12px 14px;
-    margin: 14px 0 4px 0;
-    max-width: 920px;
+    color: rgba(31, 36, 48, 0.78);
+}
+
+.visual-tags-detail strong {
+    display: block;
+    color: #111111;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+
+@media (max-width: 900px) {
+    .visual-tags-details {
+        grid-template-columns: 1fr;
     }
+}
+
+.visual-tags-taxonomy {
+    margin-top: 18px;
+}
+
+.visual-tags-group {
+    margin-top: 16px;
+}
+
+.visual-tags-group-title {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(31, 36, 48, 0.62);
+    margin-bottom: 10px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -179,21 +216,53 @@ st.markdown("""
 <div class="visual-tags-title">What are visual tags?</div>
 <div class="visual-tags-text">Visual tags are <strong>AI-detected creative signals</strong> that describe what appears in an ad and how it is built.</div>
 <div class="visual-tags-text">They turn each creative into <strong>structured data</strong>, so images can be searched, compared, and connected to CTR patterns.</div>
-<div class="visual-tags-note">The current 17-tag taxonomy is optimized for the test dataset. As the creative knowledge base grows, the tag set can expand with new categories, visual patterns, and brand-specific signals.</div>
+
+<div class="visual-tags-details">
+<div class="visual-tags-detail">
+<strong>Current setup</strong>
+The current tag system is optimized for the test dataset: 6 categorical creative descriptors and 13 binary visual signals. As the creative knowledge base grows, the tag set can expand with new categories, visual patterns, and brand-specific signals.
+</div>
+<div class="visual-tags-detail">
+<strong>MVP scope</strong>
+Food &amp; Drinks was selected as the first vertical to keep creatives consistent and comparable. The same framework can later expand to beauty, retail, telecom, finance, automotive, and more.
+</div>
+</div>
+
+<div class="visual-tags-taxonomy">
+<div class="visual-tags-group">
+<div class="visual-tags-group-title">Categorical tags</div>
 <div class="visual-tags-chips">
-<span class="visual-chip blue">product type</span>
-<span class="visual-chip highlight">people</span>
-<span class="visual-chip">colors</span>
-<span class="visual-chip">composition</span>
-<span class="visual-chip dark">CTA</span>
-<span class="visual-chip">logo</span>
-<span class="visual-chip">offer mechanics</span>
-<span class="visual-chip">emotion</span>
-<span class="visual-chip">setting</span>
-<span class="visual-chip">visual style</span>
+<span class="visual-chip blue">main object</span>
+<span class="visual-chip">food type</span>
+<span class="visual-chip">drink type</span>
+<span class="visual-chip">person who</span>
+<span class="visual-chip">person emotion</span>
+<span class="visual-chip">person action</span>
+</div>
+</div>
+
+<div class="visual-tags-group">
+<div class="visual-tags-group-title">Visual signals</div>
+<div class="visual-tags-chips">
+<span class="visual-chip highlight">has person</span>
+<span class="visual-chip">close-up</span>
+<span class="visual-chip">top-down</span>
+<span class="visual-chip">bright colors</span>
+<span class="visual-chip">warm tones</span>
+<span class="visual-chip dark">dark / moody</span>
+<span class="visual-chip">clean background</span>
+<span class="visual-chip">packaged</span>
+<span class="visual-chip">text overlay</span>
+<span class="visual-chip">price / discount</span>
+<span class="visual-chip">brand logo</span>
+<span class="visual-chip blue">CTA</span>
+<span class="visual-chip">multiple items</span>
+</div>
 </div>
 </div>
 """, unsafe_allow_html=True)
+
+
 
 # Dataset snapshot block below
 
